@@ -3,46 +3,61 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Задачи</title>
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#7c5cff">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#7c6cf0">
-<link rel="stylesheet" href="style.css">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<title>Мои дела</title>
+<link rel="stylesheet" href="./style.css">
 </head>
 <body>
 <header>
-  <h1>Задачи</h1>
-  <button id="testBtn" class="icon-btn" title="Проверить уведомление">&#128276;</button>
+  <h1>Мои дела</h1>
+  <button id="bell" class="icon-btn" title="Тестовое уведомление">🔔</button>
 </header>
 
-<div id="permBanner" class="perm-banner hidden">
-  <span>Включите уведомления, чтобы не пропустить дело</span>
-  <button id="permBtn">Включить</button>
-</div>
-
-<form id="addForm">
-  <input id="taskInput" type="text" placeholder="Что нужно сделать?" required maxlength="120" autocomplete="off">
-  <div class="row">
-    <input id="dateInput" type="date" required>
-    <input id="timeInput" type="time" required>
-    <button type="submit" class="add-btn">Добавить</button>
-  </div>
-</form>
-
 <main>
-  <ul id="list"></ul>
-  <p id="empty" class="empty hidden">Пока пусто — добавьте первую задачу</p>
+  <section id="view-tasks" class="view active">
+    <button id="add-task-btn" class="primary-btn wide">+ Новая задача</button>
+    <form id="task-form" class="card form hidden">
+      <input id="task-text" type="text" placeholder="Что нужно сделать?" required>
+      <div class="row">
+        <input id="task-date" type="date" required>
+        <input id="task-time" type="time" required>
+      </div>
+      <button type="submit" class="primary-btn">Добавить</button>
+    </form>
+    <ul id="task-list" class="list"></ul>
+  </section>
+
+  <section id="view-notes" class="view">
+    <button id="add-note-btn" class="primary-btn wide">+ Новая заметка</button>
+    <form id="note-form" class="card form hidden">
+      <textarea id="note-text" rows="1" placeholder="Текст заметки…" required></textarea>
+      <div id="tag-suggest" class="chips-row hidden"></div>
+      <input id="tag-input" type="text" placeholder="Тег (Enter — добавить)">
+      <div id="tag-chips" class="chips-row"></div>
+      <button type="submit" class="primary-btn">Сохранить</button>
+    </form>
+    <ul id="note-list" class="list"></ul>
+  </section>
 </main>
 
-<div id="alarm" class="alarm hidden">
-  <div class="alarm-card">
-    <div class="alarm-icon">&#9200;</div>
-    <div id="alarmText" class="alarm-text"></div>
-    <button id="alarmOk" class="alarm-ok">Понятно</button>
+<nav class="bottom-nav">
+  <button data-view="tasks" class="nav-btn active">📋<span>Задачи</span></button>
+  <button data-view="notes" class="nav-btn">📝<span>Заметки</span></button>
+</nav>
+
+<div id="banner" class="banner hidden">
+  <div class="banner-card">
+    <div class="banner-title">⏰ Пора!</div>
+    <div id="banner-text" class="banner-text"></div>
+    <button id="banner-ok" class="primary-btn">Понятно</button>
   </div>
 </div>
 
-<script src="app.js"></script>
+<div id="toast"></div>
+<script src="./app.js"></script>
 </body>
 </html>

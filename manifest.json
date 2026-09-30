@@ -1,12 +1,13 @@
 {
-  "name": "Задачи",
-  "short_name": "Задачи",
+  "name": "Мои дела",
+  "short_name": "Дела",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#f6f4fb",
-  "theme_color": "#7c6cf0",
+  "background_color": "#f6f4ff",
+  "theme_color": "#7c5cff",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png" }
   ]
 }
