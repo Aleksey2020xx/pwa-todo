@@ -2,89 +2,68 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#7c4dff">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Заметки и задачи</title>
 <link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#6d5b97">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
 <header class="topbar">
-  <h1>Заметки и задачи</h1>
-  <button id="bell-btn" class="bell-btn" title="Тестовое уведомление">🔔</button>
+  <h1>Сирень</h1>
+  <button id="testNotifBtn" class="icon-btn" title="Тест уведомления">🔔</button>
 </header>
 
 <main>
-
-  <!-- ===== Задачи ===== -->
-  <section id="tab-tasks" class="tab active">
-    <button class="btn-primary add-btn" id="add-task-btn">+ Новая задача</button>
-
-    <form id="task-form" class="card form-card" hidden>
-      <input type="text" id="task-text" class="field" placeholder="Что нужно сделать?" autocomplete="off">
+  <!-- ===== ЗАДАЧИ ===== -->
+  <section id="view-tasks" class="view active">
+    <button class="big-add" id="addTaskBtn">+ Новая задача</button>
+    <div id="tasksTagFilter" class="tag-filter"></div>
+    <div id="taskForm" class="form hidden">
+      <input type="text" id="taskText" class="field" placeholder="Что нужно сделать?" autocomplete="off">
       <div class="row">
-        <input type="date" id="task-date" class="field">
-        <input type="time" id="task-time" class="field">
+        <input type="date" id="taskDate" class="field">
+        <input type="time" id="taskTime" class="field">
       </div>
-      <div class="tag-picker" id="task-tag-picker"></div>
-      <div class="row">
-        <button type="submit" class="btn-primary">Сохранить</button>
-        <button type="button" class="btn-ghost" id="task-cancel">Отмена</button>
-      </div>
-    </form>
-
-    <div id="task-filter" class="tag-filter" hidden></div>
-    <div id="task-list"></div>
-    <p id="task-empty" class="empty-hint" hidden>Задач пока нет. Добавьте первую!</p>
+      <div id="taskTagPicker" class="tag-picker"></div>
+      <button class="btn-primary" id="saveTaskBtn">Добавить</button>
+    </div>
+    <div id="tasksList"></div>
   </section>
 
-  <!-- ===== Заметки ===== -->
-  <section id="tab-notes" class="tab">
-    <button class="btn-primary add-btn" id="add-note-btn">+ Новая заметка</button>
-
-    <form id="note-form" class="card form-card" hidden>
-      <textarea id="note-text" class="field note-input" placeholder="Текст заметки…" rows="2"></textarea>
-      <div class="tag-picker" id="note-tag-picker"></div>
-      <div class="row">
-        <button type="submit" class="btn-primary">Сохранить</button>
-        <button type="button" class="btn-ghost" id="note-cancel">Отмена</button>
-      </div>
-    </form>
-
-    <div id="note-filter" class="tag-filter" hidden></div>
-    <div id="note-list"></div>
-    <p id="note-empty" class="empty-hint" hidden>Заметок пока нет. Добавьте первую!</p>
+  <!-- ===== ЗАМЕТКИ ===== -->
+  <section id="view-notes" class="view">
+    <button class="big-add" id="addNoteBtn">+ Новая заметка</button>
+    <div id="notesTagFilter" class="tag-filter"></div>
+    <div id="noteForm" class="form hidden">
+      <textarea id="noteText" class="field note-area" placeholder="Текст заметки…" rows="1"></textarea>
+      <div id="noteTagPicker" class="tag-picker"></div>
+      <button class="btn-primary" id="saveNoteBtn">Добавить</button>
+    </div>
+    <div id="notesList"></div>
   </section>
 
-  <!-- ===== Теги ===== -->
-  <section id="tab-tags" class="tab">
-    <h2 class="sec-title">Все теги</h2>
-    <div id="tag-accordion"></div>
-    <p id="tags-empty" class="empty-hint" hidden>Тегов пока нет. Добавьте их в задачах или заметках.</p>
+  <!-- ===== СПИСКИ (ТЕГИ) ===== -->
+  <section id="view-tags" class="view">
+    <p class="hint">Нажмите на заголовок записи, чтобы открыть её целиком в своём разделе.</p>
+    <div id="tagsAccordion"></div>
   </section>
-
 </main>
 
-<!-- ===== Нижняя навигация ===== -->
-<nav class="bottom-nav">
-  <button class="nav-btn active" data-tab="tasks">
-    <span class="nav-ico">📋</span><span class="nav-label">Задачи</span>
-  </button>
-  <button class="nav-btn" data-tab="notes">
-    <span class="nav-ico">📝</span><span class="nav-label">Заметки</span>
-  </button>
-  <button class="nav-btn nav-icon-only" data-tab="tags" aria-label="Теги">
-    <span class="nav-ico nav-ico-big">☰</span>
-  </button>
-</nav>
-
-<!-- ===== Баннер напоминания ===== -->
-<div id="banner" class="banner" hidden>
-  <div class="banner-title">Пора делать!</div>
-  <div class="banner-text" id="banner-text"></div>
-  <button id="banner-ok" class="btn-primary banner-btn">Понятно</button>
+<!-- Назойливый баннер -->
+<div id="banner" class="banner hidden">
+  <div class="banner-title">⏰ Пора делать!</div>
+  <div id="bannerText" class="banner-text"></div>
+  <button class="btn-primary" id="bannerOk">Понятно</button>
 </div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-view="tasks">✓<span>Задачи</span></button>
+  <button class="nav-btn" data-view="notes">✎<span>Заметки</span></button>
+  <button class="nav-btn nav-square" data-view="tags" title="Списки">☰</button>
+</nav>
 
 <script src="app.js"></script>
 </body>
