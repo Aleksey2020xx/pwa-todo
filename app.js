@@ -1,466 +1,416 @@
-'use strict';
-
-/* ================== утилиты ================== */
-const $ = s => document.querySelector(s);
-const app = $('#app');
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const tk = t => t.toLowerCase();
-
-function load(key, def) {
-  try { const v = JSON.parse(localStorage.getItem(key)); return v ?? def; }
-  catch { return def; }
-}
-
-let tasks = load('todo_tasks', []);
-let notes = load('todo_notes', []);
-let knownTags = load('todo_tags', []);
-
-function persist() {
-  localStorage.setItem('todo_tasks', JSON.stringify(tasks));
-  localStorage.setItem('todo_notes', JSON.stringify(notes));
-  localStorage.setItem('todo_tags', JSON.stringify(knownTags));
-}
-
-/* ================== состояние ================== */
-let view = 'tasks';
-const taskFilters = new Set();
-const noteFilters = new Set();
-const formOpen = { tasks: false, notes: false };
-const openGroups = new Set();
-const expandedNotes = new Set();
-const draft = {
-  task: { text: '', date: '', time: '', tags: [] },
-  note: { text: '', tags: [] }
+// ===== Хранилище (localStorage) =====
+const store = {
+  get(key, def) {
+    try { const v = JSON.parse(localStorage.getItem(key)); return v === null ? def : v; }
+    catch (e) { return def; }
+  },
+  set(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 };
 
-function resetDraft(kind) {
-  draft[kind].text = '';
-  draft[kind].tags = [];
-  if (kind === 'task') { draft.task.date = ''; draft.task.time = ''; }
+let tasks   = store.get('pt_tasks', []);
+let notes   = store.get('pt_notes', []);
+let allTags = store.get('pt_tags', []);
+
+function saveAll() {
+  store.set('pt_tasks', tasks);
+  store.set('pt_notes', notes);
+  store.set('pt_tags', allTags);
 }
 
-/* ================== теги ================== */
-function normTag(t) { return t.trim().replace(/^#+/, '').replace(/\s+/g, ' '); }
-function rememberTags(list) {
-  list.forEach(t => { if (t && !knownTags.some(k => tk(k) === tk(t))) knownTags.push(t); });
-}
-function hasTag(item, tag) { return item.tags.some(t => tk(t) === tk(tag)); }
-
-/* ---------- пикер тегов (подсказки + выбранные чипы + ввод нового) ---------- */
-function tagPickerHTML(selected) {
-  const rest = knownTags.filter(t => !selected.some(s => tk(s) === tk(t)));
-  const sugg = rest.map(t => `<button type="button" class="chip chip-off" data-add="${esc(t)}">${esc(t)}</button>`).join('');
-  const chips = selected.map(t =>
-    `<span class="chip chip-on">${esc(t)}<button type="button" class="chip-x" data-remove="${esc(t)}" aria-label="Убрать тег">&times;</button></span>`
-  ).join('');
-  return `<div class="tag-suggest">${sugg || '<span class="tag-hint">Здесь появятся подсказки тегов</span>'}</div>
-    <div class="tag-chips">${chips}</div>
-    <input type="text" class="tag-input" placeholder="Новый тег — Enter или запятая">`;
+function addTagName(tag) {
+  const t = (tag || '').trim();
+  if (!t) return false;
+  const exists = allTags.some(x => x.toLowerCase() === t.toLowerCase());
+  if (!exists) allTags.push(t);
+  saveAll();
+  return true;
 }
 
-function bindTagPicker(container, selected) {
-  const renderPicker = () => {
-    container.innerHTML = tagPickerHTML(selected);
-    const input = container.querySelector('.tag-input');
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); commit(); }
-    });
-    input.addEventListener('blur', () => { if (input.value.trim()) commit(); });
-  };
-  const commit = () => {
-    const input = container.querySelector('.tag-input');
-    input.value.split(',').map(normTag).filter(Boolean).forEach(t => {
-      if (!selected.some(s => tk(s) === tk(t))) selected.push(t);
-    });
-    input.value = '';
-    rememberTags(selected);
-    persist();
-    renderPicker();
-  };
-  // один делегированный обработчик на контейнер, чтобы не плодить дубликаты
-  container.addEventListener('pointerdown', e => {
-    const add = e.target.closest('[data-add]');
-    if (add) {
-      e.preventDefault(); // не даём инпуту потерять фокус
-      const t = add.dataset.add;
-      if (!selected.some(s => tk(s) === tk(t))) selected.push(t);
-      rememberTags(selected); persist(); renderPicker();
-      return;
-    }
-    const rem = e.target.closest('[data-remove]');
-    if (rem) {
-      e.preventDefault();
-      const i = selected.findIndex(s => tk(s) === tk(rem.dataset.remove));
-      if (i > -1) selected.splice(i, 1);
-      persist(); renderPicker();
-    }
-  }, true);
-  renderPicker();
-}
+// ===== Состояние =====
+let currentTab = 'tasks';
+const taskFilterTags = new Set();
+const noteFilterTags = new Set();
+let taskFormTags = [];
+let noteFormTags = [];
+let editingTagPickerRenderQueued = false;
 
-/* ================== фильтр по тегам ================== */
-function filterBarHTML(activeSet) {
-  if (!knownTags.length) return '';
-  const chips = knownTags.map(t =>
-    `<button type="button" class="chip ${activeSet.has(tk(t)) ? 'chip-on' : 'chip-off'}" data-filter="${esc(t)}">${esc(t)}</button>`
-  ).join('');
-  return `<div class="filter-bar"><span class="filter-label">Теги:</span>${chips}</div>`;
+// ===== Утилиты =====
+const $ = (id) => document.getElementById(id);
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-function bindFilterBar(activeSet, rerender) {
-  const bar = app.querySelector('.filter-bar');
-  if (!bar) return;
-  bar.addEventListener('click', e => {
-    const c = e.target.closest('[data-filter]');
-    if (!c) return;
-    const key = tk(c.dataset.filter);
-    activeSet.has(key) ? activeSet.delete(key) : activeSet.add(key);
-    rerender();
-  });
-}
-
-/* ================== даты ================== */
-function fmtDate(d) {
-  if (!d) return 'Без даты';
-  const dt = new Date(d + 'T00:00:00');
-  if (isNaN(dt)) return d;
+function fmtDate(iso) {
+  if (!iso) return 'Без даты';
+  const d = new Date(iso + 'T00:00:00');
+  if (isNaN(d)) return iso;
+  const now = new Date();
   const opts = { day: 'numeric', month: 'long' };
-  if (dt.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
-  return dt.toLocaleDateString('ru-RU', opts);
+  if (d.getFullYear() !== now.getFullYear()) opts.year = 'numeric';
+  return d.toLocaleDateString('ru-RU', opts);
 }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
-/* ================== РАЗДЕЛ: ЗАДАЧИ ================== */
-function visibleTasks() {
-  let list = tasks.slice();
-  if (taskFilters.size) list = list.filter(t => t.tags.some(x => taskFilters.has(tk(x))));
-  list.sort((a, b) => {
-    if (!!a.done !== !!b.done) return a.done ? 1 : -1;
-    const ka = (a.date || '9999') + 'T' + (a.time || '23:59');
-    const kb = (b.date || '9999') + 'T' + (b.time || '23:59');
-    return ka < kb ? -1 : ka > kb ? 1 : 0;
+// ===== Пикер тегов =====
+function renderTagPicker(containerId, selectedArr) {
+  const box = $(containerId);
+  if (!box) return;
+  const suggestions = allTags.filter(t =>
+    !selectedArr.some(s => s.toLowerCase() === t.toLowerCase())
+  );
+  let html = '';
+  if (suggestions.length) {
+    html += '<div class="tag-suggest">' + suggestions.map(t =>
+      '<button type="button" class="suggest-chip" data-add="' + esc(t) + '">' + esc(t) + '</button>'
+    ).join('') + '</div>';
+  }
+  html += '<div class="selected-chips">' + selectedArr.map((t, i) =>
+    '<span class="chip">' + esc(t) + '<span class="chip-x" data-idx="' + i + '">×</span></span>'
+  ).join('') + '</div>';
+  html += '<div class="tag-input-wrap"><input type="text" class="tag-input" placeholder="Новый тег — Enter или запятая"></div>';
+  box.innerHTML = html;
+
+  box.querySelectorAll('.suggest-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedArr.push(btn.dataset.add);
+      renderTagPicker(containerId, selectedArr);
+    });
   });
-  return list;
+  box.querySelectorAll('.chip-x').forEach(x => {
+    x.addEventListener('click', () => {
+      selectedArr.splice(parseInt(x.dataset.idx, 10), 1);
+      renderTagPicker(containerId, selectedArr);
+    });
+  });
+  const input = box.querySelector('.tag-input');
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const v = input.value.replace(/,/g, '').trim();
+      if (v) selectedArr.push(v);
+      input.value = '';
+      renderTagPicker(containerId, selectedArr);
+    }
+  });
+  input.addEventListener('input', () => {
+    if (input.value.includes(',')) {
+      input.value.split(',').map(s => s.trim()).filter(Boolean).forEach(v => selectedArr.push(v));
+      input.value = '';
+      renderTagPicker(containerId, selectedArr);
+    }
+  });
 }
 
-function taskCardHTML(t) {
-  const chips = t.tags.map(tag => `<span class="chip chip-mini">${esc(tag)}</span>`).join('');
-  const meta = t.date ? `${fmtDate(t.date)}${t.time ? ', ' + t.time : ''}` : '';
-  return `<div class="card task-card ${t.done ? 'is-done' : ''}">
-    <label class="check"><input type="checkbox" data-toggle="${t.id}" ${t.done ? 'checked' : ''}></label>
-    <div class="card-body">
-      <div class="task-text">${esc(t.text)}</div>
-      ${meta ? `<div class="task-meta">${meta}</div>` : ''}
-      ${chips ? `<div class="tags-row">${chips}</div>` : ''}
-    </div>
-    <button class="card-del" data-del="${t.id}" aria-label="Удалить">&#128465;</button>
-  </div>`;
+// ===== Навигация =====
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + tab));
+  if (tab === 'tags') renderTagsSection();
 }
 
-function taskFormHTML() {
-  return `<div class="form-card">
-    <input type="text" id="f-task-text" placeholder="Что нужно сделать?" value="${esc(draft.task.text)}">
-    <div class="form-row">
-      <input type="date" id="f-task-date" value="${esc(draft.task.date)}">
-      <input type="time" id="f-task-time" value="${esc(draft.task.time)}">
-    </div>
-    <div class="tag-picker" id="f-task-tags"></div>
-    <div class="form-actions">
-      <button class="btn btn-ghost" id="f-task-cancel">Отмена</button>
-      <button class="btn btn-primary" id="f-task-save">Сохранить</button>
-    </div>
-  </div>`;
+// ===== Задачи =====
+$('add-task-btn').addEventListener('click', () => {
+  const f = $('task-form');
+  f.hidden = !f.hidden;
+  if (!f.hidden) {
+    $('task-date').value = new Date().toISOString().slice(0, 10);
+    $('task-time').value = '';
+    $('task-text').value = '';
+    taskFormTags = [];
+    renderTagPicker('task-tag-picker', taskFormTags);
+    $('task-text').focus();
+  }
+});
+$('task-cancel').addEventListener('click', () => { $('task-form').hidden = true; });
+
+$('task-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const text = $('task-text').value.trim();
+  if (!text) return;
+  tasks.push({
+    id: uid(),
+    text: text,
+    date: $('task-date').value || new Date().toISOString().slice(0, 10),
+    time: $('task-time').value || '',
+    tags: [...taskFormTags],
+    done: false,
+    notified: false
+  });
+  taskFormTags.forEach(addTagName);
+  saveAll();
+  $('task-form').hidden = true;
+  renderTasks();
+  renderTagFilterChips();
+});
+
+function taskDue(t) {
+  if (!t.time) return null;
+  const d = new Date(t.date + 'T' + t.time);
+  return isNaN(d) ? null : d;
 }
 
 function renderTasks() {
-  const open = formOpen.tasks;
-  let html = `<button class="btn btn-add" id="add-btn">${open ? '&times; Свернуть' : '+ Новая задача'}</button>`;
-  if (open) html += taskFormHTML();
-  html += filterBarHTML(taskFilters);
-  const list = visibleTasks();
-  html += list.length
-    ? `<div class="list">${list.map(taskCardHTML).join('')}</div>`
-    : (taskFilters.size
-      ? `<div class="empty">По выбранным тегам ничего не найдено</div>`
-      : `<div class="empty">Пока пусто. Добавьте первую задачу 🙂</div>`);
-  app.innerHTML = html;
-
-  $('#add-btn').addEventListener('click', () => { formOpen.tasks = !formOpen.tasks; render(); });
-  bindFilterBar(taskFilters, render);
-  if (open) bindTaskForm();
-
-  app.querySelectorAll('[data-toggle]').forEach(cb => cb.addEventListener('change', () => {
-    const t = tasks.find(x => x.id === cb.dataset.toggle);
-    if (t) { t.done = cb.checked; persist(); render(); }
-  }));
-  app.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', e => {
-    e.stopPropagation();
-    tasks = tasks.filter(x => x.id !== btn.dataset.del);
-    persist(); render();
-  }));
-}
-
-function bindTaskForm() {
-  const text = $('#f-task-text'), date = $('#f-task-date'), time = $('#f-task-time');
-  text.value = draft.task.text; date.value = draft.task.date; time.value = draft.task.time;
-  text.addEventListener('input', () => draft.task.text = text.value);
-  date.addEventListener('input', () => draft.task.date = date.value);
-  time.addEventListener('input', () => draft.task.time = time.value);
-  bindTagPicker($('#f-task-tags'), draft.task.tags);
-  $('#f-task-cancel').addEventListener('click', () => { formOpen.tasks = false; resetDraft('task'); render(); });
-  $('#f-task-save').addEventListener('click', () => {
-    const val = draft.task.text.trim();
-    if (!val) { text.focus(); return; }
-    tasks.push({
-      id: uid(), text: val,
-      date: draft.task.date, time: draft.task.time,
-      tags: draft.task.tags.slice(),
-      done: false, notified: false,
-      createdAt: new Date().toISOString()
-    });
-    rememberTags(draft.task.tags);
-    formOpen.tasks = false;
-    resetDraft('task');
-    persist(); render();
-    askPermission();
+  const list = $('task-list');
+  const items = tasks.filter(t =>
+    taskFilterTags.size === 0 || t.tags.some(tg => taskFilterTags.has(tg.toLowerCase()))
+  );
+  items.sort((a, b) => {
+    const da = taskDue(a) || new Date(8640000000000000);
+    const db = taskDue(b) || new Date(8640000000000000);
+    return da - db;
   });
-}
-
-/* ================== РАЗДЕЛ: ЗАМЕТКИ ================== */
-function visibleNotes() {
-  let list = notes.slice();
-  if (noteFilters.size) list = list.filter(n => n.tags.some(x => noteFilters.has(tk(x))));
-  return list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-}
-
-function noteCardHTML(n) {
-  const open = expandedNotes.has(n.id);
-  const chips = n.tags.map(t => `<span class="chip chip-mini">${esc(t)}</span>`).join('');
-  return `<div class="card note-card" data-note="${n.id}">
-    <div class="card-body">
-      <div class="note-text ${open ? 'note-open' : 'note-clip'}">${esc(n.text)}</div>
-      ${chips ? `<div class="tags-row">${chips}</div>` : ''}
-    </div>
-    <button class="card-del" data-del-note="${n.id}" aria-label="Удалить">&#128465;</button>
-  </div>`;
-}
-
-function noteFormHTML() {
-  return `<div class="form-card">
-    <textarea id="f-note-text" placeholder="Текст заметки&hellip;" rows="1">${esc(draft.note.text)}</textarea>
-    <div class="tag-picker" id="f-note-tags"></div>
-    <div class="form-actions">
-      <button class="btn btn-ghost" id="f-note-cancel">Отмена</button>
-      <button class="btn btn-primary" id="f-note-save">Сохранить</button>
-    </div>
-  </div>`;
-}
-
-function autoGrow(el) {
-  el.style.height = 'auto';
-  el.style.height = el.scrollHeight + 'px';
-}
-
-function renderNotes() {
-  const open = formOpen.notes;
-  let html = `<button class="btn btn-add" id="add-btn">${open ? '&times; Свернуть' : '+ Новая заметка'}</button>`;
-  if (open) html += noteFormHTML();
-  html += filterBarHTML(noteFilters);
-  const list = visibleNotes();
-  html += list.length
-    ? `<div class="list">${list.map(noteCardHTML).join('')}</div>`
-    : (noteFilters.size
-      ? `<div class="empty">По выбранным тегам ничего не найдено</div>`
-      : `<div class="empty">Пока пусто. Создайте первую заметку 📝</div>`);
-  app.innerHTML = html;
-
-  $('#add-btn').addEventListener('click', () => { formOpen.notes = !formOpen.notes; render(); });
-  bindFilterBar(noteFilters, render);
-  if (open) bindNoteForm();
-
-  app.querySelectorAll('[data-note]').forEach(card => card.addEventListener('click', e => {
-    if (e.target.closest('[data-del-note]')) return;
-    const id = card.dataset.note;
-    expandedNotes.has(id) ? expandedNotes.delete(id) : expandedNotes.add(id);
-    render();
-  }));
-  app.querySelectorAll('[data-del-note]').forEach(btn => btn.addEventListener('click', e => {
-    e.stopPropagation();
-    notes = notes.filter(x => x.id !== btn.dataset.delNote);
-    expandedNotes.delete(btn.dataset.delNote);
-    persist(); render();
-  }));
-}
-
-function bindNoteForm() {
-  const ta = $('#f-note-text');
-  ta.value = draft.note.text;
-  autoGrow(ta);
-  ta.addEventListener('input', () => { draft.note.text = ta.value; autoGrow(ta); });
-  bindTagPicker($('#f-note-tags'), draft.note.tags);
-  $('#f-note-cancel').addEventListener('click', () => { formOpen.notes = false; resetDraft('note'); render(); });
-  $('#f-note-save').addEventListener('click', () => {
-    const val = draft.note.text.trim();
-    if (!val) { ta.focus(); return; }
-    notes.push({
-      id: uid(), text: val,
-      tags: draft.note.tags.slice(),
-      createdAt: new Date().toISOString()
-    });
-    rememberTags(draft.note.tags);
-    formOpen.notes = false;
-    resetDraft('note');
-    persist(); render();
-  });
-}
-
-/* ================== РАЗДЕЛ: ТЕГИ (аккордеон) ================== */
-function entriesForTag(tag) {
-  const map = new Map();
-  const push = (date, entry) => {
-    if (!map.has(date)) map.set(date, []);
-    map.get(date).push(entry);
-  };
-  tasks.forEach(t => {
-    if (hasTag(t, tag)) push(t.date || '—', { type: 'task', time: t.time || '', text: t.text });
-  });
-  notes.forEach(n => {
-    if (hasTag(n, tag)) push((n.createdAt || '').slice(0, 10) || '—', { type: 'note', time: (n.createdAt || '').slice(11, 16), text: n.text });
-  });
-  return [...map.entries()]
-    .sort((a, b) => b[0].localeCompare(a[0]))
-    .map(([date, arr]) => ({
-      date,
-      items: arr.sort((x, y) => (y.time || '').localeCompare(x.time || ''))
-    }));
-}
-
-function itemHTML(it) {
-  const badge = it.type === 'task'
-    ? '<span class="badge badge-task">задача</span>'
-    : '<span class="badge badge-note">заметка</span>';
-  const time = it.time ? `<span class="item-time">${esc(it.time)}</span>` : '';
-  return `<div class="tag-item">${badge}${time}<span class="item-text">${esc(it.text)}</span></div>`;
-}
-
-function dateGroupHTML(g) {
-  return `<div class="date-group">
-    <div class="date-label">${g.date === '—' ? 'Без даты' : esc(fmtDate(g.date))}</div>
-    ${g.items.map(itemHTML).join('')}
-  </div>`;
-}
-
-function renderTagsView() {
-  if (!knownTags.length) {
-    app.innerHTML = `<div class="empty">Тегов пока нет.<br>Создайте их в заметках или задачах —<br>и они появятся здесь.</div>`;
-    return;
-  }
-  const groups = knownTags.slice().sort((a, b) => a.localeCompare(b, 'ru')).map(t => {
-    const items = entriesForTag(t);
-    const count = items.reduce((s, g) => s + g.items.length, 0);
-    const open = openGroups.has(tk(t));
-    return `<div class="tag-group ${open ? 'is-open' : ''}">
-      <button type="button" class="tag-header" data-tag-group="${esc(t)}">
-        <span class="tag-name">#${esc(t)}</span>
-        <span class="tag-count">${count}</span>
-        <span class="chev">&lsaquo;</span>
-      </button>
-      <div class="tag-body"><div class="tag-body-inner">
-        ${items.length
-          ? items.map(dateGroupHTML).join('')
-          : `<div class="date-group"><div class="date-label">Пока ничего нет</div></div>`}
-      </div></div>
-    </div>`;
+  $('task-empty').hidden = tasks.length > 0;
+  list.innerHTML = items.map(t => {
+    const due = taskDue(t);
+    const meta = fmtDate(t.date) + (t.time ? ', ' + t.time : '') + (due && due < new Date() && !t.done ? ' · просрочено' : '');
+    return '<div class="card task-card' + (t.done ? ' done-card' : '') + '">' +
+      '<div class="item-top">' +
+        '<button class="check' + (t.done ? ' done' : '') + '" data-id="' + t.id + '">✓</button>' +
+        '<div class="item-main"><div class="item-text">' + esc(t.text) + '</div>' +
+        '<div class="item-meta">' + meta + '</div></div>' +
+        '<button class="del-btn" data-del="' + t.id + '">🗑</button>' +
+      '</div>' +
+      (t.tags.length ? '<div class="item-tags">' + t.tags.map(tg => '<span class="chip">' + esc(tg) + '</span>').join('') + '</div>' : '') +
+    '</div>';
   }).join('');
-  app.innerHTML = `<div class="tag-groups">${groups}</div>`;
 
-  app.querySelectorAll('[data-tag-group]').forEach(h => h.addEventListener('click', () => {
-    const key = tk(h.dataset.tagGroup);
-    openGroups.has(key) ? openGroups.delete(key) : openGroups.add(key);
-    render();
+  list.querySelectorAll('.check').forEach(c => c.addEventListener('click', () => {
+    const t = tasks.find(x => x.id === c.dataset.id);
+    if (t) { t.done = !t.done; if (t.done) t.notified = true; saveAll(); renderTasks(); }
+  }));
+  list.querySelectorAll('.del-btn').forEach(d => d.addEventListener('click', () => {
+    tasks = tasks.filter(x => x.id !== d.dataset.del);
+    saveAll(); renderTasks(); renderTagFilterChips();
   }));
 }
 
-/* ================== роутер ================== */
-function render() {
-  $('#view-title').textContent = { tasks: 'Задачи', notes: 'Заметки', tags: 'Теги' }[view];
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
-  if (view === 'tasks') renderTasks();
-  else if (view === 'notes') renderNotes();
-  else renderTagsView();
-}
-
-/* ================== уведомления ================== */
-function askPermission() {
-  if (!('Notification' in window)) return;
-  if (Notification.permission === 'default') Notification.requestPermission();
-}
-
-function showBanner(t) {
-  $('#banner-text').textContent = t.text;
-  $('#banner-meta').textContent = [t.date ? fmtDate(t.date) : '', t.time || ''].filter(Boolean).join(', ');
-  $('#banner').classList.remove('hidden');
-  if (navigator.vibrate) navigator.vibrate([300, 150, 300, 150, 300]);
-}
-
-function sendSystemNotification(title, body) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
-    navigator.serviceWorker.getRegistration().then(reg => {
-      if (reg) reg.showNotification(title, { body, tag: 'todo-' + Date.now() });
-      else new Notification(title, { body });
-    }).catch(() => { try { new Notification(title, { body }); } catch (e) {} });
-  } else {
-    try { new Notification(title, { body }); } catch (e) {}
+// ===== Заметки =====
+$('add-note-btn').addEventListener('click', () => {
+  const f = $('note-form');
+  f.hidden = !f.hidden;
+  if (!f.hidden) {
+    $('note-text').value = '';
+    noteFormTags = [];
+    renderTagPicker('note-tag-picker', noteFormTags);
+    autoGrow($('note-text'));
+    $('note-text').focus();
   }
-}
+});
+$('note-cancel').addEventListener('click', () => { $('note-form').hidden = true; });
 
-function checkDue() {
-  const now = new Date();
-  tasks.forEach(t => {
-    if (t.notified || t.done || !t.date || !t.time) return;
-    const due = new Date(t.date + 'T' + t.time);
-    if (!isNaN(due) && now >= due) {
-      t.notified = true;
-      persist();
-      showBanner(t);
-      sendSystemNotification('⏰ ' + fmtDate(t.date) + ', ' + t.time, t.text);
-    }
-  });
-}
+$('note-text').addEventListener('input', () => autoGrow($('note-text')));
+function autoGrow(el) { el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px'; }
 
-$('#banner-ok').addEventListener('click', () => $('#banner').classList.add('hidden'));
-$('#banner').addEventListener('click', e => { if (e.target === $('#banner')) $('#banner').classList.add('hidden'); });
-
-$('#test-notif').addEventListener('click', async () => {
-  if (!('Notification' in window)) { alert('Уведомления не поддерживаются этим браузером'); return; }
-  let p = Notification.permission;
-  if (p === 'default') p = await Notification.requestPermission();
-  if (p !== 'granted') { alert('Разрешение не выдано. Проверьте настройки сайта в браузере.'); return; }
-  showBanner({ text: 'Тестовое уведомление — всё работает!', date: '', time: '' });
-  sendSystemNotification('🔔 Тест уведомлений', 'Если вы это видите — уведомления работают');
+$('note-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const text = $('note-text').value.trim();
+  if (!text) return;
+  notes.push({ id: uid(), text: text, createdAt: new Date().toISOString().slice(0, 10), tags: [...noteFormTags] });
+  noteFormTags.forEach(addTagName);
+  saveAll();
+  $('note-form').hidden = true;
+  renderNotes();
+  renderTagFilterChips();
 });
 
-/* ================== запуск ================== */
-document.querySelectorAll('.nav-btn').forEach(b => b.addEventListener('click', () => {
-  view = b.dataset.view;
-  window.scrollTo(0, 0);
-  render();
-}));
+function renderNotes() {
+  const list = $('note-list');
+  const items = notes.filter(n =>
+    noteFilterTags.size === 0 || n.tags.some(tg => noteFilterTags.has(tg.toLowerCase()))
+  );
+  items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  $('note-empty').hidden = notes.length > 0;
+  list.innerHTML = items.map(n =>
+    '<div class="card note-card" data-note="' + n.id + '">' +
+      '<div class="item-top"><div class="item-main">' +
+        '<div class="note-preview note-toggle">' + esc(n.text) + '</div>' +
+        '<div class="item-meta">' + fmtDate(n.createdAt) + '</div>' +
+      '</div>' +
+      '<button class="del-btn" data-del-note="' + n.id + '">🗑</button></div>' +
+      (n.tags.length ? '<div class="item-tags">' + n.tags.map(tg => '<span class="chip">' + esc(tg) + '</span>').join('') + '</div>' : '') +
+    '</div>'
+  ).join('');
 
-render();
-checkDue();
+  list.querySelectorAll('.note-card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.del-btn') || e.target.closest('.chip')) return;
+      const n = notes.find(x => x.id === card.dataset.note);
+      if (!n) return;
+      const body = card.querySelector('.note-preview');
+      if (body.classList.contains('note-preview')) {
+        const div = document.createElement('div');
+        div.className = 'note-full';
+        div.textContent = n.text;
+        body.replaceWith(div);
+      } else {
+        const div = document.createElement('div');
+        div.className = 'note-preview note-toggle';
+        div.textContent = n.text;
+        body.replaceWith(div);
+      }
+    });
+  });
+  list.querySelectorAll('.del-btn').forEach(d => d.addEventListener('click', () => {
+    notes = notes.filter(x => x.id !== d.dataset.delNote);
+    saveAll(); renderNotes(); renderTagFilterChips();
+  }));
+}
+
+// ===== Плашки фильтров =====
+function renderTagFilterChips() {
+  const conf = [
+    { el: 'task-filter', tags: taskFilterTags },
+    { el: 'note-filter', tags: noteFilterTags }
+  ];
+  conf.forEach(c => {
+    const box = $(c.el);
+    if (!allTags.length) { box.hidden = true; return; }
+    box.hidden = false;
+    box.innerHTML = allTags.map(t => {
+      const sel = c.tags.has(t.toLowerCase());
+      return '<button class="filter-chip' + (sel ? ' selected' : '') + '" data-ftag="' + esc(t) + '">' + esc(t) + '</button>';
+    }).join('');
+    box.querySelectorAll('.filter-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const key = chip.dataset.ftag.toLowerCase();
+        if (c.tags.has(key)) c.tags.delete(key); else c.tags.add(key);
+        renderTagFilterChips();
+        renderTasks();
+        renderNotes();
+      });
+    });
+  });
+}
+
+// ===== Раздел тегов (аккордеон) =====
+function renderTagsSection() {
+  const box = $('tag-accordion');
+  $('tags-empty').hidden = allTags.length > 0;
+  const sorted = [...allTags].sort((a, b) => a.localeCompare(b, 'ru'));
+
+  box.innerHTML = sorted.map(tag => {
+    const key = tag.toLowerCase();
+    const tItems = tasks.filter(t => t.tags.some(x => x.toLowerCase() === key));
+    const nItems = notes.filter(n => n.tags.some(x => x.toLowerCase() === key));
+    const total = tItems.length + nItems.length;
+    if (total === 0) return '';
+
+    // группировка по датам
+    const groups = new Map();
+    tItems.forEach(t => {
+      const k = t.date || 'Без даты';
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push({ type: 'task', obj: t });
+    });
+    nItems.forEach(n => {
+      const k = n.createdAt || 'Без даты';
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push({ type: 'note', obj: n });
+    });
+    const groupKeys = [...groups.keys()].sort();
+    const groupsHtml = groupKeys.map(k => {
+      const rows = groups.get(k).map(it => {
+        const isTask = it.type === 'task';
+        const badge = isTask ? '<span class="badge">задача</span>' : '<span class="badge" style="background:#e9e4f6">заметка</span>';
+        const time = isTask && it.obj.time ? '<span class="badge time">' + it.obj.time + '</span>' : '';
+        return '<div class="tag-item-row"><div class="tag-item-top">' + badge + time +
+          '<span class="tag-item-text">' + esc(it.obj.text) + '</span></div></div>';
+      }).join('');
+      return '<div class="date-head">' + esc(fmtDate(k)) + '</div>' + rows;
+    }).join('');
+
+    return '<div class="acc-item">' +
+      '<button class="acc-head" data-tag="' + esc(tag) + '">' +
+        '<span>' + esc(tag) + '<span class="acc-count">' + total + '</span></span>' +
+        '<span class="acc-arrow">▸</span>' +
+      '</button>' +
+      '<div class="acc-body"><div class="acc-inner"><div class="acc-content">' + groupsHtml + '</div></div></div>' +
+    '</div>';
+  }).join('');
+
+  box.querySelectorAll('.acc-head').forEach(head => {
+    head.addEventListener('click', () => head.parentElement.classList.toggle('open'));
+  });
+}
+
+// ===== Уведомления =====
+function showBanner(text) {
+  $('banner-text').textContent = text;
+  $('banner').hidden = false;
+  if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300]);
+}
+$('banner-ok').addEventListener('click', () => { $('banner').hidden = true; });
+
+async function sendSystemNotification(title, body) {
+  if (!('Notification' in window)) return false;
+  if (Notification.permission !== 'granted') return false;
+  try {
+    if (navigator.serviceWorker) {
+      const reg = await navigator.serviceWorker.ready;
+      await reg.showNotification(title, { body: body, icon: 'icon-192.png', tag: 'pt-' + Date.now() });
+      return true;
+    }
+  } catch (e) { /* пробуем без SW */ }
+  try { new Notification(title, { body: body }); return true; } catch (e2) { return false; }
+}
+
+async function requestPermission() {
+  if (!('Notification' in window)) return false;
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission === 'denied') return false;
+  const r = await Notification.requestPermission();
+  return r === 'granted';
+}
+
+$('bell-btn').addEventListener('click', async () => {
+  const ok = await requestPermission();
+  if (!ok) {
+    showBanner('Уведомления заблокированы. Разрешите их в настройках браузера.');
+    return;
+  }
+  showBanner('Тестовое уведомление — всё работает!');
+  const sent = await sendSystemNotification('Проверка', 'Уведомления включены ✓');
+  if (!sent) showBanner('Системное уведомление не прошло — но баннер в приложении работает.');
+});
+
+// Проверка наступивших задач — каждые 15 секунд + при возврате во вкладку
+function checkDue() {
+  const now = Date.now();
+  tasks.forEach(t => {
+    if (t.done || t.notified) return;
+    const due = taskDue(t);
+    if (due && due.getTime() <= now) {
+      t.notified = true;
+      saveAll();
+      showBanner(t.text);
+      sendSystemNotification('Пора делать!', t.text);
+    }
+  });
+  renderTasks();
+}
 setInterval(checkDue, 15000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDue(); });
 
+// ===== Service Worker с автообновлением =====
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
-  let refreshing = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (refreshing) return;
-    refreshing = true;
-    if (!sessionStorage.getItem('sw-reloaded')) {
-      sessionStorage.setItem('sw-reloaded', '1');
-      location.reload();
-    }
-  });
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      if (nw) nw.addEventListener('statechange', () => {
+        if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+          location.reload();
+        }
+      });
+    });
+  }).catch(() => {});
 }
+
+// ===== Первый запуск =====
+renderTagPicker('task-tag-picker', taskFormTags);
+renderTagPicker('note-tag-picker', noteFormTags);
+renderTasks();
+renderNotes();
+renderTagFilterChips();

@@ -2,47 +2,88 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#8b7bd8">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#7c4dff">
 <title>Заметки и задачи</title>
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="header">
-  <h1 id="view-title">Задачи</h1>
-  <button id="test-notif" class="icon-btn" title="Тестовое уведомление">&#128276;</button>
-</header>
-<main id="app"></main>
 
+<header class="topbar">
+  <h1>Заметки и задачи</h1>
+  <button id="bell-btn" class="bell-btn" title="Тестовое уведомление">🔔</button>
+</header>
+
+<main>
+
+  <!-- ===== Задачи ===== -->
+  <section id="tab-tasks" class="tab active">
+    <button class="btn-primary add-btn" id="add-task-btn">+ Новая задача</button>
+
+    <form id="task-form" class="card form-card" hidden>
+      <input type="text" id="task-text" class="field" placeholder="Что нужно сделать?" autocomplete="off">
+      <div class="row">
+        <input type="date" id="task-date" class="field">
+        <input type="time" id="task-time" class="field">
+      </div>
+      <div class="tag-picker" id="task-tag-picker"></div>
+      <div class="row">
+        <button type="submit" class="btn-primary">Сохранить</button>
+        <button type="button" class="btn-ghost" id="task-cancel">Отмена</button>
+      </div>
+    </form>
+
+    <div id="task-filter" class="tag-filter" hidden></div>
+    <div id="task-list"></div>
+    <p id="task-empty" class="empty-hint" hidden>Задач пока нет. Добавьте первую!</p>
+  </section>
+
+  <!-- ===== Заметки ===== -->
+  <section id="tab-notes" class="tab">
+    <button class="btn-primary add-btn" id="add-note-btn">+ Новая заметка</button>
+
+    <form id="note-form" class="card form-card" hidden>
+      <textarea id="note-text" class="field note-input" placeholder="Текст заметки…" rows="2"></textarea>
+      <div class="tag-picker" id="note-tag-picker"></div>
+      <div class="row">
+        <button type="submit" class="btn-primary">Сохранить</button>
+        <button type="button" class="btn-ghost" id="note-cancel">Отмена</button>
+      </div>
+    </form>
+
+    <div id="note-filter" class="tag-filter" hidden></div>
+    <div id="note-list"></div>
+    <p id="note-empty" class="empty-hint" hidden>Заметок пока нет. Добавьте первую!</p>
+  </section>
+
+  <!-- ===== Теги ===== -->
+  <section id="tab-tags" class="tab">
+    <h2 class="sec-title">Все теги</h2>
+    <div id="tag-accordion"></div>
+    <p id="tags-empty" class="empty-hint" hidden>Тегов пока нет. Добавьте их в задачах или заметках.</p>
+  </section>
+
+</main>
+
+<!-- ===== Нижняя навигация ===== -->
 <nav class="bottom-nav">
-  <button class="nav-btn active" data-view="tasks">
-    <span class="nav-ico">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12.5 9.5 18 20 6.5"/></svg>
-    </span>
-    <span>Задачи</span>
+  <button class="nav-btn active" data-tab="tasks">
+    <span class="nav-ico">📋</span><span class="nav-label">Задачи</span>
   </button>
-  <button class="nav-btn" data-view="notes">
-    <span class="nav-ico">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-    </span>
-    <span>Заметки</span>
+  <button class="nav-btn" data-tab="notes">
+    <span class="nav-ico">📝</span><span class="nav-label">Заметки</span>
   </button>
-  <button class="nav-btn square" data-view="tags" aria-label="Теги">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="16" y2="12"/><line x1="4" y1="18" x2="12" y2="18"/></svg>
+  <button class="nav-btn nav-icon-only" data-tab="tags" aria-label="Теги">
+    <span class="nav-ico nav-ico-big">☰</span>
   </button>
 </nav>
 
-<div id="banner" class="overlay hidden">
-  <div class="banner-card">
-    <div class="banner-ico">&#9200;</div>
-    <div id="banner-meta" class="banner-meta"></div>
-    <div id="banner-text" class="banner-text"></div>
-    <button class="btn btn-primary" id="banner-ok">Понятно</button>
-  </div>
+<!-- ===== Баннер напоминания ===== -->
+<div id="banner" class="banner" hidden>
+  <div class="banner-title">Пора делать!</div>
+  <div class="banner-text" id="banner-text"></div>
+  <button id="banner-ok" class="btn-primary banner-btn">Понятно</button>
 </div>
 
 <script src="app.js"></script>
