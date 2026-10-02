@@ -1,7 +1,7 @@
 'use strict';
 
 /* ===== Хранилище ===== */
-const LS = { tasks: 'pwa_tasks', notes: 'pwa_notes', tags: 'pwa_tags' };
+const LS = { tasks: 'pwa_tasks', notes: 'pwa_notes', tags: 'pwa_tags', topic: 'pwa_ntfy_topic' };
 let tasks = load(LS.tasks, []);
 let notes = load(LS.notes, []);
 let allTags = load(LS.tags, []);
@@ -21,6 +21,26 @@ function fmtDate(iso) {
   return new Date(y, m - 1, d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
 }
 
+/* ===== Push-канал (ntfy) ===== */
+function getTopic() {
+  let t = localStorage.getItem(LS.topic);
+  if (!t) { t = 'siren-' + Math.random().toString(36).slice(2, 10); localStorage.setItem(LS.topic, t); }
+  return t;
+}
+function schedulePush(title, body, when) {
+  const delayUnix = Math.floor(when.getTime() / 1000);
+  fetch('https://ntfy.sh/' + getTopic(), {
+    method: 'POST',
+    body: body,
+    headers: {
+      'Title': title,
+      'Priority': 'high',
+      'Tags': 'alarm_clock',
+      'X-Delay': String(delayUnix)
+    }
+  }).catch(() => {}); // push не обязателен: есть локальный баннер
+}
+
 /* ===== Навигация ===== */
 document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => switchView(btn.dataset.view));
@@ -33,7 +53,7 @@ function switchView(name) {
 }
 
 /* ===== Пикер тегов (общий) ===== */
-let pickers = {}; // { task: [], note: [] }
+let pickers = {};
 function renderPicker(which) {
   const box = document.getElementById(which === 'task' ? 'taskTagPicker' : 'noteTagPicker');
   const selected = pickers[which] || [];
@@ -76,12 +96,18 @@ document.getElementById('saveTaskBtn').addEventListener('click', () => {
   const text = document.getElementById('taskText').value.trim();
   if (!text) return;
   askPermission();
+  const date = document.getElementById('taskDate').value || null;
+  const time = document.getElementById('taskTime').value || null;
   tasks.push({
-    id: uid(), text, date: document.getElementById('taskDate').value || null,
-    time: document.getElementById('taskTime').value || null,
+    id: uid(), text, date, time,
     tags: [...(pickers.task || [])], done: false, notified: false
   });
-  save(); resetFiltersForNew();
+  save();
+  if (date && time) {
+    const when = new Date(date + 'T' + time);
+    if (!isNaN(when)) schedulePush('Пора делать! 🔔', text, when);
+  }
+  resetFiltersForNew();
   document.getElementById('taskText').value = '';
   document.getElementById('taskForm').classList.add('hidden');
   renderTasks(); renderAllFilters(); renderTagsView();
@@ -173,8 +199,25 @@ function renderFilter(section, src) {
 }
 function resetFiltersForNew() { /* новый тег обновляет плашки через renderAllFilters */ }
 
-/* ===== Раздел «Списки»: аккордеон + ссылки ===== */
+/* ===== Раздел «Списки»: панель push + аккордеон ===== */
+function renderPushPanel() {
+  const box = document.getElementById('pushPanel');
+  const topic = getTopic();
+  box.innerHTML =
+    '<div class="card-title">Push-канал (ntfy)</div>' +
+    '<div class="push-topic">' + esc(topic) + '</div>' +
+    '<p class="hint" style="margin:8px 0 0">Установите приложение ntfy, добавьте подписку на эту тему — и уведомления будут приходить даже при закрытом приложении.</p>' +
+    '<div style="display:flex;gap:8px;margin-top:12px">' +
+      '<button class="chip" id="copyTopicBtn">Копировать тему</button>' +
+      '<a class="chip" style="text-decoration:none" href="https://ntfy.sh/#/' + esc(topic) + '" target="_blank" rel="noopener">Открыть на ntfy.sh</a>' +
+    '</div>';
+  document.getElementById('copyTopicBtn').addEventListener('click', () => {
+    navigator.clipboard && navigator.clipboard.writeText(topic);
+  });
+}
+
 function renderTagsView() {
+  renderPushPanel();
   const box = document.getElementById('tagsAccordion');
   const groups = {};
   tasks.forEach(t => t.tags.forEach(g => addGroup(groups, g, { type: 'task', item: t })));
@@ -219,7 +262,7 @@ function renderTagsView() {
 }
 function addGroup(groups, g, entry) { (groups[g] = groups[g] || { items: [] }).items.push(entry); }
 
-/* ===== Уведомления ===== */
+/* ===== Уведомления (локальные) ===== */
 function askPermission() {
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
 }
