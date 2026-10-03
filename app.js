@@ -28,27 +28,34 @@ function getTopic() {
   return t;
 }
 function schedulePush(title, body, when) {
-  const delayUnix = Math.floor(when.getTime() / 1000);
-  fetch('https://ntfy.sh/' + getTopic(), {
+  const diffSec = Math.round((when.getTime() - Date.now()) / 1000);
+  if (diffSec < 10) {
+    showBanner('ntfy: время уже прошло — push не запланирован (минимум 10 сек). Локальный баннер сработает.');
+    return;
+  }
+  if (diffSec > 259200) {
+    showBanner('ntfy: откладывать можно максимум на 3 дня — push для этой задачи не сработает.');
+    return;
+  }
+  fetch('https://ntfy.sh/', {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      topic: getTopic(),
       message: body,
       title: title,
       priority: 5,
-      tags: ['alarm_clock']
-    }),
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Delay': String(delayUnix)
-    }
-  }).then(r => {
-    if (!r.ok) {
-      r.text().then(t => showBanner('ntfy отклонил: ' + r.status + ' ' + t));
-    }
-  }).catch(err => {
+      tags: ['alarm_clock'],
+      delay: diffSec + 's'
+    })
+  }).then(r => r.text().then(t => {
+    if (r.ok) showBanner('Push принят сервером: ' + t.slice(0, 80));
+    else showBanner('ntfy отклонил: ' + r.status + ' ' + t);
+  })).catch(err => {
     showBanner('ntfy недоступен: ' + err);
   });
 }
+
 
 
 
