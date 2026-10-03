@@ -40,15 +40,13 @@ function schedulePush(title, body, when) {
     }
   }).then(r => {
     if (!r.ok) {
-      return r.text().then(t => {
-        alert('ntfy отклонил запрос: ' + r.status + ' ' + t);
-      });
+      r.text().then(t => showBanner('ntfy отклонил: ' + r.status + ' ' + t));
     }
-    alert('Push отправлен! Доставка в ' + when.toLocaleTimeString('ru-RU'));
   }).catch(err => {
-    alert('Не удалось связаться с ntfy: ' + err);
+    showBanner('ntfy недоступен: ' + err);
   });
 }
+
 
 
 /* ===== Навигация ===== */
@@ -277,10 +275,18 @@ function askPermission() {
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
 }
 document.getElementById('testNotifBtn').addEventListener('click', () => {
-  askPermission();
-  setTimeout(() => notify('Тест', 'Уведомления работают! 🎉'), 300);
-  const when = new Date(Date.now() + 20000); // через 20 секунд
-  schedulePush('Тест push', 'Если видите это через 20 секунд — конвейер работает!', when);
+  // Сначала спрашиваем разрешение, потом всё остальное
+  const run = () => {
+    notify('Тест', 'Уведомления работают! 🎉');
+    const when = new Date(Date.now() + 20000);
+    schedulePush('Тест push', 'Если видите это через 20 сек — push работает!', when);
+    showBanner('Тест отправлен: локальное уведомление + push через 20 сек');
+  };
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission().then(p => { if (p === 'granted') run(); else showBanner('Разрешение на уведомления не дано'); });
+  } else {
+    run();
+  }
 });
 
 
