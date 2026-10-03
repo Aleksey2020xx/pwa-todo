@@ -31,11 +31,14 @@ function schedulePush(title, body, when) {
   const delayUnix = Math.floor(when.getTime() / 1000);
   fetch('https://ntfy.sh/' + getTopic(), {
     method: 'POST',
-    body: body,
+    body: JSON.stringify({
+      message: body,
+      title: title,
+      priority: 5,
+      tags: ['alarm_clock']
+    }),
     headers: {
-      'Title': title,
-      'Priority': 'high',
-      'Tags': 'alarm_clock',
+      'Content-Type': 'application/json',
       'X-Delay': String(delayUnix)
     }
   }).then(r => {
@@ -46,6 +49,7 @@ function schedulePush(title, body, when) {
     showBanner('ntfy недоступен: ' + err);
   });
 }
+
 
 
 
