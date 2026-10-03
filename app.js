@@ -38,8 +38,18 @@ function schedulePush(title, body, when) {
       'Tags': 'alarm_clock',
       'X-Delay': String(delayUnix)
     }
-  }).catch(() => {}); // push не обязателен: есть локальный баннер
+  }).then(r => {
+    if (!r.ok) {
+      return r.text().then(t => {
+        alert('ntfy отклонил запрос: ' + r.status + ' ' + t);
+      });
+    }
+    alert('Push отправлен! Доставка в ' + when.toLocaleTimeString('ru-RU'));
+  }).catch(err => {
+    alert('Не удалось связаться с ntfy: ' + err);
+  });
 }
+
 
 /* ===== Навигация ===== */
 document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -269,7 +279,10 @@ function askPermission() {
 document.getElementById('testNotifBtn').addEventListener('click', () => {
   askPermission();
   setTimeout(() => notify('Тест', 'Уведомления работают! 🎉'), 300);
+  const when = new Date(Date.now() + 20000); // через 20 секунд
+  schedulePush('Тест push', 'Если видите это через 20 секунд — конвейер работает!', when);
 });
+
 
 function checkTasks() {
   const now = new Date();
