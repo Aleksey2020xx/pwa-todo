@@ -124,7 +124,7 @@ document.getElementById('saveTaskBtn').addEventListener('click', () => {
   save();
   if (date && time) {
     const when = new Date(date + 'T' + time);
-    if (!isNaN(when)) schedulePush('Пора делать! 🔔', text, when);
+    if (!isNaN(when)) schedulePush('Не забудь про меня! 🔔', text, when);
   }
   resetFiltersForNew();
   document.getElementById('taskText').value = '';
@@ -306,7 +306,7 @@ function checkTasks() {
   tasks.forEach(t => {
     if (t.done || t.notified || !t.date || !t.time) return;
     const dt = new Date(t.date + 'T' + t.time);
-    if (now >= dt) { t.notified = true; save(); const txt = t.text; showBanner(txt); notify('Пора делать!', txt); }
+    if (now >= dt) { t.notified = true; save(); const txt = t.text; showBanner(txt); notify('Не забудь про меня!', txt); }
   });
 }
 function showBanner(text) {
@@ -321,10 +321,17 @@ function notify(title, body) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   try {
     navigator.serviceWorker.ready.then(reg =>
-      reg.showNotification(title, { body, tag: 'task-' + Date.now(), vibrate: [200, 100, 200] })
-    ).catch(() => { try { new Notification(title, { body }); } catch (e) {} });
-  } catch (e) { try { new Notification(title, { body }); } catch (e2) {} }
+      reg.showNotification(title, {
+        body,
+        icon: 'icon-192.png',
+        badge: 'icon-192.png',
+        vibrate: [150, 80, 150, 80, 300],
+        tag: 'task-' + Date.now()
+      })
+    ).catch(() => { try { new Notification(title, { body, icon: 'icon-192.png' }); } catch (e) {} });
+  } catch (e) { try { new Notification(title, { body, icon: 'icon-192.png' }); } catch (e2) {} }
 }
+
 setInterval(checkTasks, 15000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkTasks(); });
 
