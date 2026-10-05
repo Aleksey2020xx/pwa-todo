@@ -54,10 +54,8 @@
 
   <!-- ===== КАЛЕНДАРЬ ===== -->
   <section id="view-calendar" class="view">
-    <div class="cal-head">
-      <button class="cal-nav-btn" id="calPrev">‹</button>
-      <div class="cal-title" id="calTitle"></div>
-      <button class="cal-nav-btn" id="calNext">›</button>
+    <div class="cal-topbar">
+      <button class="icon-btn" id="helpCalendarBtn" title="Как это работает">?</button>
     </div>
     <div class="cal-tools">
       <button class="icon-btn" id="editMarkersBtn" title="Редактировать маркеры">✏️</button>
@@ -109,11 +107,29 @@
     <div class="form modal-form">
       <div class="modal-sub" style="margin-top:0" id="markerFormTitle">Новый маркер</div>
       <input type="text" id="markerName" class="field" placeholder="Название маркера" autocomplete="off">
-      <div class="row">
-        <input type="color" id="markerColor" class="color-field" value="#7b5ea7">
-        <input type="number" id="markerHours" class="field" min="0" step="0.5" placeholder="Часов в день">
-      </div>
+      <div class="modal-sub">Цвет</div>
+      <div class="palette" id="paletteRow"></div>
+      <div class="modal-sub">Часов в день</div>
+      <input type="number" id="markerHours" class="field" min="0" step="0.5" placeholder="Например, 2">
+      <input type="hidden" id="markerColor" value="#7b5ea7">
       <button class="btn-primary" id="saveMarkerBtn">Добавить маркер</button>
+    </div>
+  </div>
+</div>
+
+<!-- Справка по календарю -->
+<div id="helpModal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">ℹ️ Как устроен календарь</div>
+      <button class="del" id="helpModalClose">✕</button>
+    </div>
+    <div class="help-body">
+      <p><b>✏️ и лента маркеров.</b> Нажмите на карандаш, чтобы создать маркер: название, цвет и часов в день. Созданные маркеры появляются в ленте справа от карандаша и прокручиваются свайпом.</p>
+      <p><b>Массовая отметка.</b> Коснитесь маркера в ленте — он подсветится. Дальше просто отмечайте дни на сетке: тап ставит или снимает маркер. Повторный тап по маркеру завершает режим.</p>
+      <p><b>Тап по дню</b> (без выбранного маркера) открывает попап дня: маркеры этого дня, список задач и быстрое создание новой задачи со временем и напоминанием.</p>
+      <p><b>Цветные точки</b> над числом — маркеры, назначенные на день. Сиреневый бейдж слева внизу — сколько задач запланировано на этот день.</p>
+      <p><b>Статистика</b> под календарём считается за показанный месяц: дни и часы по каждому маркеру плюс итог.</p>
     </div>
   </div>
 </div>
