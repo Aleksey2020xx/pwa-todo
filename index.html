@@ -51,6 +51,25 @@
     <p class="hint">Нажмите на заголовок записи, чтобы открыть её целиком в своём разделе.</p>
     <div id="tagsAccordion"></div>
   </section>
+
+  <!-- ===== КАЛЕНДАРЬ ===== -->
+  <section id="view-calendar" class="view">
+    <div class="cal-head">
+      <button class="cal-nav-btn" id="calPrev">‹</button>
+      <div class="cal-title" id="calTitle"></div>
+      <button class="cal-nav-btn" id="calNext">›</button>
+    </div>
+    <div class="cal-tools">
+      <button class="chip" id="editMarkersBtn">✏️ Редактировать</button>
+    </div>
+    <div class="cal-grid cal-dow-row">
+      <div class="cal-dow">Пн</div><div class="cal-dow">Вт</div><div class="cal-dow">Ср</div>
+      <div class="cal-dow">Чт</div><div class="cal-dow">Пт</div><div class="cal-dow">Сб</div><div class="cal-dow">Вс</div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="stat-title">Статистика за месяц</div>
+    <div id="calStats" class="card"></div>
+  </section>
 </main>
 
 <!-- Назойливый баннер -->
@@ -60,10 +79,47 @@
   <button class="btn-primary" id="bannerOk">Понятно</button>
 </div>
 
+<!-- Попап дня -->
+<div id="dayModal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="dayModalTitle"></div>
+      <button class="del" id="dayModalClose">✕</button>
+    </div>
+    <div id="dayMarkers"></div>
+    <div id="dayTasks"></div>
+    <div class="day-add">
+      <input type="text" id="dayTaskText" class="field" placeholder="Новая задача на этот день" autocomplete="off">
+      <input type="time" id="dayTaskTime" class="field" style="margin-top:8px">
+      <button class="btn-primary" id="saveDayTaskBtn">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Попап маркеров -->
+<div id="markerModal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Маркеры</div>
+      <button class="del" id="markerModalClose">✕</button>
+    </div>
+    <div id="markerList"></div>
+    <div class="marker-form">
+      <input type="text" id="markerName" class="field" placeholder="Название маркера" autocomplete="off">
+      <div class="row">
+        <input type="color" id="markerColor" class="color-field" value="#7b5ea7">
+        <input type="number" id="markerHours" class="field" min="0" step="0.5" placeholder="часов в день">
+      </div>
+      <button class="btn-primary" id="saveMarkerBtn">Добавить маркер</button>
+    </div>
+  </div>
+</div>
+
 <nav class="bottom-nav">
   <button class="nav-btn active" data-view="tasks">✓<span>Задачи</span></button>
   <button class="nav-btn" data-view="notes">✎<span>Заметки</span></button>
-  <button class="nav-btn nav-square" data-view="tags" title="Списки">☰</button>
+  <button class="nav-btn" data-view="tags">🏷<span>Списки</span></button>
+  <button class="nav-btn" data-view="calendar">📅<span>Календарь</span></button>
 </nav>
 
 <script src="app.js"></script>
