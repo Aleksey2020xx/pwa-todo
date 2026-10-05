@@ -49,4 +49,4 @@ self.addEventListener('notificationclick', e => {
     }
     return self.clients.openWindow(url);
   }));
-});
+}); 
