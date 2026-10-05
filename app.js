@@ -473,6 +473,19 @@ function renderCalStats() {
 }
 
 /* --- Попап маркеров --- */
+const PALETTE = ['#7b5ea7', '#a48cc8', '#c9b6e4', '#5b4a86', '#3d3154',
+                 '#6db3a1', '#5f86d9', '#d98b5f', '#d95f6f', '#d9b65f'];
+function renderPalette() {
+  const row = document.getElementById('paletteRow');
+  const cur = document.getElementById('markerColor').value;
+  row.innerHTML = PALETTE.map(c =>
+    '<button type="button" class="pal' + (c === cur ? ' active' : '') +
+    '" style="background:' + c + '" data-pal="' + c + '" aria-label="' + c + '"></button>').join('');
+  row.querySelectorAll('[data-pal]').forEach(b => b.addEventListener('click', () => {
+    document.getElementById('markerColor').value = b.dataset.pal;
+    renderPalette();
+  }));
+}
 document.getElementById('editMarkersBtn').addEventListener('click', () => {
   editingMarkerId = null;
   document.getElementById('markerName').value = '';
@@ -481,6 +494,7 @@ document.getElementById('editMarkersBtn').addEventListener('click', () => {
   document.getElementById('markerFormTitle').textContent = 'Новый маркер';
   document.getElementById('saveMarkerBtn').textContent = 'Добавить маркер';
   renderMarkerModal();
+  renderPalette();
   openModal('markerModal');
 });
 function renderMarkerModal() {
@@ -501,6 +515,7 @@ function renderMarkerModal() {
     document.getElementById('markerHours').value = m.hours;
     document.getElementById('markerFormTitle').textContent = 'Изменение маркера';
     document.getElementById('saveMarkerBtn').textContent = 'Сохранить изменения';
+    renderPalette();
   }));
   list.querySelectorAll('[data-mdel]').forEach(b => b.addEventListener('click', () => {
     const id = b.dataset.mdel;
@@ -531,6 +546,7 @@ document.getElementById('saveMarkerBtn').addEventListener('click', () => {
   document.getElementById('saveMarkerBtn').textContent = 'Добавить маркер';
   save(); renderMarkerModal(); renderCalendar();
 });
+
 
 /* --- Попап дня --- */
 function openDayModal(iso) {
