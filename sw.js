@@ -1,4 +1,4 @@
-const CACHE = 'pwa-todo-v12';
+const CACHE = 'pwa-todo-v13';
 const ASSETS = ['./', './index.html', './style.css', './app.js', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
