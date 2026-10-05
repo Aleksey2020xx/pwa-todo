@@ -372,14 +372,39 @@ setInterval(checkTasks, 15000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkTasks(); });
 
 /* ===== КАЛЕНДАРЬ ===== */
-let calYear, calMonth, selectedDay = null, editingMarkerId = null;
+let calYear, calMonth, selectedDay = null, editingMarkerId = null, selectedMarkerId = null;
 (function initCal() { const d = new Date(); calYear = d.getFullYear(); calMonth = d.getMonth(); })();
 function isoOf(y, m, d) { return y + '-' + pad(m + 1) + '-' + pad(d); }
 
 document.getElementById('calPrev').addEventListener('click', () => { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCalendar(); });
 document.getElementById('calNext').addEventListener('click', () => { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCalendar(); });
 
+/* --- Лента маркеров и режим назначения --- */
+function renderMarkerStrip() {
+  const strip = document.getElementById('markerStrip');
+  const hint = document.getElementById('calHint');
+  if (!markers.length) {
+    strip.innerHTML = '<span class="hint" style="padding:10px 4px">Маркеров пока нет — нажмите ✏️, чтобы создать.</span>';
+  } else {
+    strip.innerHTML = markers.map(m =>
+      '<button class="chip' + (selectedMarkerId === m.id ? ' active' : '') + '" data-mselect="' + m.id + '">' +
+      '<span class="chip-dot" style="background:' + m.color + '"></span>' + esc(m.name) + '</button>').join('');
+    strip.querySelectorAll('[data-mselect]').forEach(b => b.addEventListener('click', () => {
+      selectedMarkerId = selectedMarkerId === b.dataset.mselect ? null : b.dataset.mselect;
+      renderMarkerStrip();
+    }));
+  }
+  const m = markers.find(x => x.id === selectedMarkerId);
+  if (m) {
+    hint.textContent = 'Выбран «' + m.name + '» — тапайте по дням календаря, чтобы отметить или снять. Повторный тап по маркеру завершает выбор.';
+    hint.classList.add('show');
+  } else {
+    hint.classList.remove('show');
+  }
+}
+
 function renderCalendar() {
+  renderMarkerStrip();
   document.getElementById('calTitle').textContent =
     new Date(calYear, calMonth, 1).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
   const grid = document.getElementById('calGrid');
@@ -409,7 +434,19 @@ function renderCalendar() {
       '</div>';
   }
   grid.innerHTML = html;
-  grid.querySelectorAll('[data-day]').forEach(c => c.addEventListener('click', () => openDayModal(c.dataset.day)));
+  grid.querySelectorAll('[data-day]').forEach(c => c.addEventListener('click', () => {
+    if (selectedMarkerId) {
+      // Режим массового назначения: тап по дню переключает выбранный маркер
+      const iso = c.dataset.day;
+      const arr = calmarks[iso] || [];
+      const i = arr.indexOf(selectedMarkerId);
+      if (i >= 0) arr.splice(i, 1); else arr.push(selectedMarkerId);
+      if (arr.length) calmarks[iso] = arr; else delete calmarks[iso];
+      save(); renderCalendar();
+    } else {
+      openDayModal(c.dataset.day);
+    }
+  }));
   renderCalStats();
 }
 
@@ -440,6 +477,8 @@ document.getElementById('editMarkersBtn').addEventListener('click', () => {
   editingMarkerId = null;
   document.getElementById('markerName').value = '';
   document.getElementById('markerHours').value = '';
+  document.getElementById('markerColor').value = '#7b5ea7';
+  document.getElementById('markerFormTitle').textContent = 'Новый маркер';
   document.getElementById('saveMarkerBtn').textContent = 'Добавить маркер';
   renderMarkerModal();
   openModal('markerModal');
@@ -460,11 +499,13 @@ function renderMarkerModal() {
     document.getElementById('markerName').value = m.name;
     document.getElementById('markerColor').value = m.color;
     document.getElementById('markerHours').value = m.hours;
+    document.getElementById('markerFormTitle').textContent = 'Изменение маркера';
     document.getElementById('saveMarkerBtn').textContent = 'Сохранить изменения';
   }));
   list.querySelectorAll('[data-mdel]').forEach(b => b.addEventListener('click', () => {
     const id = b.dataset.mdel;
     markers = markers.filter(x => x.id !== id);
+    if (selectedMarkerId === id) selectedMarkerId = null;
     Object.keys(calmarks).forEach(k => {
       calmarks[k] = calmarks[k].filter(x => x !== id);
       if (!calmarks[k].length) delete calmarks[k];
@@ -486,6 +527,7 @@ document.getElementById('saveMarkerBtn').addEventListener('click', () => {
   editingMarkerId = null;
   document.getElementById('markerName').value = '';
   document.getElementById('markerHours').value = '';
+  document.getElementById('markerFormTitle').textContent = 'Новый маркер';
   document.getElementById('saveMarkerBtn').textContent = 'Добавить маркер';
   save(); renderMarkerModal(); renderCalendar();
 });
@@ -507,7 +549,7 @@ function renderDayModal() {
     ? '<div class="modal-sub">Маркеры дня</div><div class="tag-suggest">' + markers.map(m =>
         '<button class="chip' + (cur.includes(m.id) ? ' active' : '') + '" data-dmark="' + m.id + '">' +
         '<span class="chip-dot" style="background:' + m.color + '"></span>' + esc(m.name) + '</button>').join('') + '</div>'
-    : '<div class="empty" style="padding:10px">Создайте маркеры через «Редактировать» над календарём.</div>';
+    : '<div class="empty" style="padding:10px">Создайте маркеры через ✏️ над календарём.</div>';
   dm.querySelectorAll('[data-dmark]').forEach(b => b.addEventListener('click', () => {
     const id = b.dataset.dmark;
     const arr = calmarks[selectedDay] || [];
@@ -554,4 +596,3 @@ document.getElementById('saveDayTaskBtn').addEventListener('click', () => {
 
 /* ===== Старт ===== */
 renderTasks(); renderNotes(); renderAllFilters(); renderTagsView(); renderCalendar();
-
