@@ -82,6 +82,9 @@ document.querySelectorAll('.modal-overlay').forEach(o => {
 });
 document.getElementById('dayModalClose').addEventListener('click', () => closeModal('dayModal'));
 document.getElementById('markerModalClose').addEventListener('click', () => closeModal('markerModal'));
+document.getElementById('helpCalendarBtn').addEventListener('click', () => openModal('helpModal'));
+document.getElementById('helpModalClose').addEventListener('click', () => closeModal('helpModal'));
+
 
 /* ===== Пикер тегов (общий) ===== */
 let pickers = {};
