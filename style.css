@@ -163,3 +163,64 @@ main { padding: 16px; max-width: 560px; margin: 0 auto; }
   font-family: monospace; font-size: 1.05rem; background: var(--accent-soft);
   padding: 10px 14px; border-radius: 12px; margin-top: 10px; word-break: break-all;
 }
+
+/* ===== Календарь ===== */
+.cal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.cal-title { font-weight: 700; font-size: 1.1rem; text-transform: capitalize; }
+.cal-nav-btn {
+  border: none; background: var(--accent-soft); color: var(--accent);
+  width: 42px; height: 42px; border-radius: 14px; font-size: 1.3rem; cursor: pointer;
+}
+.cal-tools { margin-bottom: 12px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-dow-row { margin-bottom: 6px; }
+.cal-dow { text-align: center; font-size: .72rem; color: var(--muted); font-weight: 700; }
+.cal-day {
+  aspect-ratio: 1; border-radius: 14px; background: var(--card); box-shadow: var(--shadow);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; cursor: pointer; border: 2px solid transparent; padding: 2px; min-width: 0;
+}
+.cal-day.other { opacity: .3; pointer-events: none; box-shadow: none; background: transparent; }
+.cal-day.today { border-color: var(--accent); }
+.cal-day:active { background: var(--accent-soft); }
+.cal-day .num { font-weight: 600; font-size: .92rem; line-height: 1; }
+.cal-dots { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; }
+.cal-dot { width: 7px; height: 7px; border-radius: 50%; }
+.cal-count { font-size: .62rem; color: var(--accent); font-weight: 700; }
+.stat-title { font-weight: 700; margin: 18px 0 10px; }
+
+/* Статистика и маркеры */
+.stat-row { display: flex; align-items: center; gap: 10px; padding: 10px 6px; border-bottom: 1px solid #f0ecf8; }
+.stat-row:last-child { border-bottom: none; }
+.stat-total { font-weight: 700; }
+.stat-swatch { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+.stat-name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stat-val { color: var(--muted); font-size: .9rem; flex-shrink: 0; }
+.chip-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+
+/* Попапы */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(45, 36, 64, .45); z-index: 60;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.modal {
+  background: var(--card); border-radius: 24px 24px 0 0; padding: 18px;
+  width: 100%; max-width: 560px; max-height: 82vh; overflow-y: auto;
+  animation: slideUp .25s ease;
+}
+@keyframes slideUp { from { transform: translateY(40px); opacity: 0; } }
+.modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.modal-title { font-size: 1.15rem; font-weight: 700; }
+.modal-sub { font-size: .8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin: 12px 0 8px; }
+.day-task { display: flex; align-items: center; gap: 10px; padding: 10px 6px; border-bottom: 1px solid #f0ecf8; }
+.day-task:last-child { border-bottom: none; }
+.day-task-text { flex: 1; line-height: 1.35; }
+.day-task.done .day-task-text { text-decoration: line-through; color: var(--muted); }
+.day-task small { color: var(--muted); }
+.marker-row { display: flex; align-items: center; gap: 10px; padding: 10px 6px; border-bottom: 1px solid #f0ecf8; }
+.marker-row:last-child { border-bottom: none; }
+.color-field {
+  width: 56px; height: 52px; padding: 4px; border: 1.5px solid #ddd4ee;
+  border-radius: 14px; background: #fff; cursor: pointer; flex-shrink: 0;
+}
+
