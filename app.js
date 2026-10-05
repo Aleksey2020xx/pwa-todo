@@ -1,10 +1,12 @@
 'use strict';
 
 /* ===== Хранилище ===== */
-const LS = { tasks: 'pwa_tasks', notes: 'pwa_notes', tags: 'pwa_tags', topic: 'pwa_ntfy_topic' };
+const LS = { tasks: 'pwa_tasks', notes: 'pwa_notes', tags: 'pwa_tags', topic: 'pwa_ntfy_topic', markers: 'pwa_markers', calmarks: 'pwa_calmarks' };
 let tasks = load(LS.tasks, []);
 let notes = load(LS.notes, []);
 let allTags = load(LS.tags, []);
+let markers = load(LS.markers, []);
+let calmarks = load(LS.calmarks, {});
 const activeFilters = { tasks: new Set(), notes: new Set() };
 
 function load(key, def) { try { return JSON.parse(localStorage.getItem(key)) || def; } catch { return def; } }
@@ -12,9 +14,12 @@ function save() {
   localStorage.setItem(LS.tasks, JSON.stringify(tasks));
   localStorage.setItem(LS.notes, JSON.stringify(notes));
   localStorage.setItem(LS.tags, JSON.stringify(allTags));
+  localStorage.setItem(LS.markers, JSON.stringify(markers));
+  localStorage.setItem(LS.calmarks, JSON.stringify(calmarks));
 }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function pad(n) { return String(n).padStart(2, '0'); }
 function fmtDate(iso) {
   if (!iso) return 'Без даты';
   const [y, m, d] = iso.split('-').map(Number);
@@ -57,10 +62,6 @@ function schedulePush(title, body, when, clickUrl) {
   });
 }
 
-
-
-
-
 /* ===== Навигация ===== */
 document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => switchView(btn.dataset.view));
@@ -70,7 +71,17 @@ function switchView(name) {
   document.getElementById('view-' + name).classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === name));
   if (name === 'tags') renderTagsView();
+  if (name === 'calendar') renderCalendar();
 }
+
+/* ===== Попапы ===== */
+function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.add('hidden'); });
+});
+document.getElementById('dayModalClose').addEventListener('click', () => closeModal('dayModal'));
+document.getElementById('markerModalClose').addEventListener('click', () => closeModal('markerModal'));
 
 /* ===== Пикер тегов (общий) ===== */
 let pickers = {};
@@ -112,7 +123,6 @@ document.getElementById('addTaskBtn').addEventListener('click', () => {
     const d = new Date(); document.getElementById('taskDate').value = d.toISOString().slice(0, 10);
   }
 });
-
 document.getElementById('saveTaskBtn').addEventListener('click', () => {
   const text = document.getElementById('taskText').value.trim();
   if (!text) return;
@@ -128,16 +138,14 @@ document.getElementById('saveTaskBtn').addEventListener('click', () => {
   if (date && time) {
     const when = new Date(date + 'T' + time);
     if (!isNaN(when)) {
-      schedulePush('🌸 Не забудь про меня!', text, when,
+      schedulePush('🌸 Сирень: пора делать', text, when,
         location.origin + location.pathname + '?task=' + encodeURIComponent(task.id));
     }
   }
-  resetFiltersForNew();
   document.getElementById('taskText').value = '';
   document.getElementById('taskForm').classList.add('hidden');
-  renderTasks(); renderAllFilters(); renderTagsView();
+  renderTasks(); renderAllFilters(); renderTagsView(); renderCalendar();
 });
-
 
 function renderTasks() {
   const list = document.getElementById('tasksList');
@@ -158,27 +166,13 @@ function renderTasks() {
     '</div>').join('');
   list.querySelectorAll('[data-check]').forEach(b => b.addEventListener('click', e => {
     e.stopPropagation();
-    const t = tasks.find(x => x.id === b.dataset.check); t.done = !t.done; save(); renderTasks();
+    const t = tasks.find(x => x.id === b.dataset.check); t.done = !t.done; save(); renderTasks(); renderCalendar();
   }));
   list.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', e => {
     e.stopPropagation();
-    tasks = tasks.filter(x => x.id !== b.dataset.del); save(); renderTasks(); renderAllFilters(); renderTagsView();
+    tasks = tasks.filter(x => x.id !== b.dataset.del); save(); renderTasks(); renderAllFilters(); renderTagsView(); renderCalendar();
   }));
 }
-
-function focusTask(id) {
-  switchView('tasks');
-  activeFilters.tasks.clear();
-  renderTasks();
-  setTimeout(() => {
-    const el = document.getElementById('task-' + id);
-    if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    el.classList.add('highlight');
-    setTimeout(() => el.classList.remove('highlight'), 2200);
-  }, 80);
-}
-
 
 /* ===== Заметки ===== */
 const noteArea = document.getElementById('noteText');
@@ -192,7 +186,7 @@ document.getElementById('saveNoteBtn').addEventListener('click', () => {
   const text = noteArea.value.trim();
   if (!text) return;
   notes.unshift({ id: uid(), text, tags: [...(pickers.note || [])], created: new Date().toISOString() });
-  save(); resetFiltersForNew();
+  save();
   noteArea.value = ''; noteArea.style.height = 'auto';
   document.getElementById('noteForm').classList.add('hidden');
   renderNotes(); renderAllFilters(); renderTagsView();
@@ -237,7 +231,6 @@ function renderFilter(section, src) {
     renderFilter(s, s === 'tasks' ? tasks.flatMap(x => x.tags) : notes.flatMap(x => x.tags));
   }));
 }
-function resetFiltersForNew() { /* новый тег обновляет плашки через renderAllFilters */ }
 
 /* ===== Раздел «Списки»: панель push + аккордеон ===== */
 function renderPushPanel() {
@@ -302,16 +295,38 @@ function renderTagsView() {
 }
 function addGroup(groups, g, entry) { (groups[g] = groups[g] || { items: [] }).items.push(entry); }
 
+/* ===== Переход по push / ссылке на задачу ===== */
+function focusTask(id) {
+  switchView('tasks');
+  activeFilters.tasks.clear();
+  renderTasks();
+  setTimeout(() => {
+    const el = document.getElementById('task-' + id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('highlight');
+    setTimeout(() => el.classList.remove('highlight'), 2200);
+  }, 80);
+}
+(function handleTaskParam() {
+  const params = new URLSearchParams(location.search);
+  const taskId = params.get('task');
+  if (taskId) {
+    history.replaceState(null, '', location.pathname);
+    setTimeout(() => focusTask(taskId), 200);
+  }
+})();
+
 /* ===== Уведомления (локальные) ===== */
 function askPermission() {
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
 }
 document.getElementById('testNotifBtn').addEventListener('click', () => {
-  // Сначала спрашиваем разрешение, потом всё остальное
   const run = () => {
     notify('Тест', 'Уведомления работают! 🎉');
     const when = new Date(Date.now() + 20000);
-    schedulePush('Тест push', 'Если видите это через 20 сек — push работает!', when);
+    schedulePush('Тест push', 'Если видите это через 20 сек — push работает!', when,
+      location.origin + location.pathname);
     showBanner('Тест отправлен: локальное уведомление + push через 20 сек');
   };
   if ('Notification' in window && Notification.permission === 'default') {
@@ -321,13 +336,12 @@ document.getElementById('testNotifBtn').addEventListener('click', () => {
   }
 });
 
-
 function checkTasks() {
   const now = new Date();
   tasks.forEach(t => {
     if (t.done || t.notified || !t.date || !t.time) return;
     const dt = new Date(t.date + 'T' + t.time);
-    if (now >= dt) { t.notified = true; save(); showBanner(t.text); notify('🌸 Не забудь про меня!', t.text, t.id); }
+    if (now >= dt) { t.notified = true; save(); showBanner(t.text); notify('🌸 Сирень: пора делать', t.text, t.id); }
   });
 }
 function showBanner(text) {
@@ -354,21 +368,190 @@ function notify(title, body, taskId) {
     ).catch(() => { try { new Notification(title, opts); } catch (e) {} });
   } catch (e) { try { new Notification(title, opts); } catch (e2) {} }
 }
-
-
 setInterval(checkTasks, 15000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkTasks(); });
 
-/* ===== Переход по push / ссылке на задачу ===== */
-(function handleTaskParam() {
-  const params = new URLSearchParams(location.search);
-  const taskId = params.get('task');
-  if (taskId) {
-    history.replaceState(null, '', location.pathname);
-    setTimeout(() => focusTask(taskId), 200);
-  }
-})();
+/* ===== КАЛЕНДАРЬ ===== */
+let calYear, calMonth, selectedDay = null, editingMarkerId = null;
+(function initCal() { const d = new Date(); calYear = d.getFullYear(); calMonth = d.getMonth(); })();
+function isoOf(y, m, d) { return y + '-' + pad(m + 1) + '-' + pad(d); }
 
+document.getElementById('calPrev').addEventListener('click', () => { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCalendar(); });
+document.getElementById('calNext').addEventListener('click', () => { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCalendar(); });
+
+function renderCalendar() {
+  document.getElementById('calTitle').textContent =
+    new Date(calYear, calMonth, 1).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+  const grid = document.getElementById('calGrid');
+  const firstDow = (new Date(calYear, calMonth, 1).getDay() + 6) % 7; // Пн = 0
+  const dim = new Date(calYear, calMonth + 1, 0).getDate();
+  const prevDim = new Date(calYear, calMonth, 0).getDate();
+  const totalCells = Math.ceil((firstDow + dim) / 7) * 7;
+  const now = new Date();
+  const todayIso = isoOf(now.getFullYear(), now.getMonth(), now.getDate());
+  let html = '';
+  for (let i = 0; i < totalCells; i++) {
+    let dayNum, iso, other = false;
+    if (i < firstDow) { dayNum = prevDim - firstDow + 1 + i; other = true; }
+    else if (i < firstDow + dim) { dayNum = i - firstDow + 1; iso = isoOf(calYear, calMonth, dayNum); }
+    else { dayNum = i - (firstDow + dim) + 1; other = true; }
+    if (other) { html += '<div class="cal-day other"><div class="num">' + dayNum + '</div></div>'; continue; }
+    const dayMarks = calmarks[iso] || [];
+    const dots = dayMarks.map(id => {
+      const m = markers.find(x => x.id === id);
+      return m ? '<span class="cal-dot" style="background:' + m.color + '"></span>' : '';
+    }).join('');
+    const cnt = tasks.filter(t => t.date === iso).length;
+    html += '<div class="cal-day' + (iso === todayIso ? ' today' : '') + '" data-day="' + iso + '">' +
+      '<div class="num">' + dayNum + '</div>' +
+      (dots ? '<div class="cal-dots">' + dots + '</div>' : '') +
+      (cnt ? '<div class="cal-count">' + cnt + '</div>' : '') +
+      '</div>';
+  }
+  grid.innerHTML = html;
+  grid.querySelectorAll('[data-day]').forEach(c => c.addEventListener('click', () => openDayModal(c.dataset.day)));
+  renderCalStats();
+}
+
+function renderCalStats() {
+  const box = document.getElementById('calStats');
+  const prefix = calYear + '-' + pad(calMonth + 1) + '-';
+  const rows = markers.map(m => {
+    let days = 0;
+    Object.keys(calmarks).forEach(k => {
+      if (k.indexOf(prefix) === 0 && calmarks[k].includes(m.id)) days++;
+    });
+    return { m, days, hours: days * (Number(m.hours) || 0) };
+  }).filter(r => r.days > 0).sort((a, b) => b.hours - a.hours);
+  const total = rows.reduce((s, r) => s + r.hours, 0);
+  if (!rows.length) {
+    box.innerHTML = '<div class="empty" style="padding:16px">Отметьте дни маркерами — здесь появится статистика.</div>';
+    return;
+  }
+  box.innerHTML = rows.map(r =>
+    '<div class="stat-row"><span class="stat-swatch" style="background:' + r.m.color + '"></span>' +
+    '<span class="stat-name">' + esc(r.m.name) + '</span>' +
+    '<span class="stat-val">' + r.days + ' дн · ' + r.hours + ' ч</span></div>').join('') +
+    '<div class="stat-row stat-total"><span class="stat-name">Итого</span><span class="stat-val">' + total + ' ч</span></div>';
+}
+
+/* --- Попап маркеров --- */
+document.getElementById('editMarkersBtn').addEventListener('click', () => {
+  editingMarkerId = null;
+  document.getElementById('markerName').value = '';
+  document.getElementById('markerHours').value = '';
+  document.getElementById('saveMarkerBtn').textContent = 'Добавить маркер';
+  renderMarkerModal();
+  openModal('markerModal');
+});
+function renderMarkerModal() {
+  const list = document.getElementById('markerList');
+  list.innerHTML = markers.length ? markers.map(m =>
+    '<div class="marker-row">' +
+    '<span class="stat-swatch" style="background:' + m.color + '"></span>' +
+    '<span class="stat-name">' + esc(m.name) + '</span>' +
+    '<span class="stat-val">' + m.hours + ' ч/день</span>' +
+    '<button class="del" data-med="' + m.id + '" title="Изменить">✏️</button>' +
+    '<button class="del" data-mdel="' + m.id + '" title="Удалить">✕</button></div>').join('')
+    : '<div class="empty" style="padding:12px">Маркеров пока нет — создайте первый ниже.</div>';
+  list.querySelectorAll('[data-med]').forEach(b => b.addEventListener('click', () => {
+    const m = markers.find(x => x.id === b.dataset.med);
+    editingMarkerId = m.id;
+    document.getElementById('markerName').value = m.name;
+    document.getElementById('markerColor').value = m.color;
+    document.getElementById('markerHours').value = m.hours;
+    document.getElementById('saveMarkerBtn').textContent = 'Сохранить изменения';
+  }));
+  list.querySelectorAll('[data-mdel]').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.mdel;
+    markers = markers.filter(x => x.id !== id);
+    Object.keys(calmarks).forEach(k => {
+      calmarks[k] = calmarks[k].filter(x => x !== id);
+      if (!calmarks[k].length) delete calmarks[k];
+    });
+    save(); renderMarkerModal(); renderCalendar();
+  }));
+}
+document.getElementById('saveMarkerBtn').addEventListener('click', () => {
+  const name = document.getElementById('markerName').value.trim();
+  if (!name) return;
+  const color = document.getElementById('markerColor').value;
+  const hours = Number(document.getElementById('markerHours').value) || 0;
+  if (editingMarkerId) {
+    const m = markers.find(x => x.id === editingMarkerId);
+    m.name = name; m.color = color; m.hours = hours;
+  } else {
+    markers.push({ id: uid(), name, color, hours });
+  }
+  editingMarkerId = null;
+  document.getElementById('markerName').value = '';
+  document.getElementById('markerHours').value = '';
+  document.getElementById('saveMarkerBtn').textContent = 'Добавить маркер';
+  save(); renderMarkerModal(); renderCalendar();
+});
+
+/* --- Попап дня --- */
+function openDayModal(iso) {
+  selectedDay = iso;
+  renderDayModal();
+  openModal('dayModal');
+}
+function renderDayModal() {
+  const [y, m, d] = selectedDay.split('-').map(Number);
+  document.getElementById('dayModalTitle').textContent =
+    new Date(y, m - 1, d).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+  // Маркеры дня
+  const dm = document.getElementById('dayMarkers');
+  const cur = calmarks[selectedDay] || [];
+  dm.innerHTML = markers.length
+    ? '<div class="modal-sub">Маркеры дня</div><div class="tag-suggest">' + markers.map(m =>
+        '<button class="chip' + (cur.includes(m.id) ? ' active' : '') + '" data-dmark="' + m.id + '">' +
+        '<span class="chip-dot" style="background:' + m.color + '"></span>' + esc(m.name) + '</button>').join('') + '</div>'
+    : '<div class="empty" style="padding:10px">Создайте маркеры через «Редактировать» над календарём.</div>';
+  dm.querySelectorAll('[data-dmark]').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.dmark;
+    const arr = calmarks[selectedDay] || [];
+    const i = arr.indexOf(id);
+    if (i >= 0) arr.splice(i, 1); else arr.push(id);
+    if (arr.length) calmarks[selectedDay] = arr; else delete calmarks[selectedDay];
+    save(); renderDayModal(); renderCalendar();
+  }));
+  // Задачи дня
+  const dt2 = document.getElementById('dayTasks');
+  const dayTasks = tasks.filter(t => t.date === selectedDay);
+  dt2.innerHTML = '<div class="modal-sub">Задачи на этот день</div>' + (dayTasks.length
+    ? dayTasks.map(t =>
+        '<div class="day-task' + (t.done ? ' done' : '') + '">' +
+        '<button class="check' + (t.done ? ' done' : '') + '" data-dcheck="' + t.id + '"></button>' +
+        '<span class="day-task-text">' + esc(t.text) + (t.time ? ' <small>' + esc(t.time) + '</small>' : '') + '</span>' +
+        '<button class="del" data-ddel="' + t.id + '">✕</button></div>').join('')
+    : '<div class="empty" style="padding:10px">Задач на этот день нет.</div>');
+  dt2.querySelectorAll('[data-dcheck]').forEach(b => b.addEventListener('click', () => {
+    const t = tasks.find(x => x.id === b.dataset.dcheck); t.done = !t.done; save();
+    renderDayModal(); renderTasks(); renderTagsView(); renderCalendar();
+  }));
+  dt2.querySelectorAll('[data-ddel]').forEach(b => b.addEventListener('click', () => {
+    tasks = tasks.filter(x => x.id !== b.dataset.ddel); save();
+    renderDayModal(); renderTasks(); renderAllFilters(); renderTagsView(); renderCalendar();
+  }));
+  document.getElementById('dayTaskText').value = '';
+  document.getElementById('dayTaskTime').value = '';
+}
+document.getElementById('saveDayTaskBtn').addEventListener('click', () => {
+  const text = document.getElementById('dayTaskText').value.trim();
+  if (!text || !selectedDay) return;
+  askPermission();
+  const time = document.getElementById('dayTaskTime').value || null;
+  const task = { id: uid(), text, date: selectedDay, time, tags: [...(pickers.task || [])], done: false, notified: false };
+  tasks.push(task); save();
+  if (time) {
+    const when = new Date(selectedDay + 'T' + time);
+    if (!isNaN(when)) schedulePush('🌸 Сирень: пора делать', text, when,
+      location.origin + location.pathname + '?task=' + encodeURIComponent(task.id));
+  }
+  renderDayModal(); renderTasks(); renderAllFilters(); renderTagsView(); renderCalendar();
+});
 
 /* ===== Старт ===== */
-renderTasks(); renderNotes(); renderAllFilters(); renderTagsView();
+renderTasks(); renderNotes(); renderAllFilters(); renderTagsView(); renderCalendar();
+
