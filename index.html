@@ -53,9 +53,14 @@
   </section>
 
   <!-- ===== КАЛЕНДАРЬ ===== -->
-  <section id="view-calendar" class="view">
+    <section id="view-calendar" class="view">
     <div class="cal-topbar">
       <button class="icon-btn" id="helpCalendarBtn" title="Как это работает">?</button>
+    </div>
+    <div class="cal-head">
+      <button class="cal-nav-btn" id="calPrev">‹</button>
+      <div class="cal-title" id="calTitle"></div>
+      <button class="cal-nav-btn" id="calNext">›</button>
     </div>
     <div class="cal-tools">
       <button class="icon-btn" id="editMarkersBtn" title="Редактировать маркеры">✏️</button>
@@ -70,6 +75,7 @@
     <div class="stat-title">Статистика за месяц</div>
     <div id="calStats" class="card"></div>
   </section>
+
 </main>
 
 <!-- Назойливый баннер -->
