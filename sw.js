@@ -1,4 +1,4 @@
-const CACHE = 'pwa-todo-v7';
+const CACHE = 'pwa-todo-v8';
 const ASSETS = ['./', './index.html', './style.css', './app.js', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -12,13 +12,18 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
 });
-self.addEventListener('message', e => {
-  if (e.data === 'SKIP_WAITING') self.skipWaiting();
-});
 self.addEventListener('notificationclick', e => {
   e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || './';
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-    for (const c of list) if ('focus' in c) return c.focus();
-    return self.clients.openWindow('./');
+    for (const c of list) {
+      if ('focus' in c) {
+        c.focus();
+        if ('navigate' in c) c.navigate(url);
+        return;
+      }
+    }
+    return self.clients.openWindow(url);
   }));
 });
+
