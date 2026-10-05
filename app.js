@@ -27,7 +27,7 @@ function getTopic() {
   if (!t) { t = 'siren-' + Math.random().toString(36).slice(2, 10); localStorage.setItem(LS.topic, t); }
   return t;
 }
-function schedulePush(title, body, when) {
+function schedulePush(title, body, when, clickUrl) {
   const diffSec = Math.round((when.getTime() - Date.now()) / 1000);
   if (diffSec < 10) {
     showBanner('ntfy: время уже прошло — push не запланирован (минимум 10 сек). Локальный баннер сработает.');
@@ -46,7 +46,8 @@ function schedulePush(title, body, when) {
       title: title,
       priority: 5,
       tags: ['alarm_clock'],
-      delay: diffSec + 's'
+      delay: diffSec + 's',
+      click: clickUrl
     })
   }).then(r => r.text().then(t => {
     if (r.ok) showBanner('Push принят сервером: ' + t.slice(0, 80));
@@ -111,26 +112,32 @@ document.getElementById('addTaskBtn').addEventListener('click', () => {
     const d = new Date(); document.getElementById('taskDate').value = d.toISOString().slice(0, 10);
   }
 });
+
 document.getElementById('saveTaskBtn').addEventListener('click', () => {
   const text = document.getElementById('taskText').value.trim();
   if (!text) return;
   askPermission();
   const date = document.getElementById('taskDate').value || null;
   const time = document.getElementById('taskTime').value || null;
-  tasks.push({
+  const task = {
     id: uid(), text, date, time,
     tags: [...(pickers.task || [])], done: false, notified: false
-  });
+  };
+  tasks.push(task);
   save();
   if (date && time) {
     const when = new Date(date + 'T' + time);
-    if (!isNaN(when)) schedulePush('Не забудь про меня! 🔔', text, when);
+    if (!isNaN(when)) {
+      schedulePush('🌸 Не забудь про меня!', text, when,
+        location.origin + location.pathname + '?task=' + encodeURIComponent(task.id));
+    }
   }
   resetFiltersForNew();
   document.getElementById('taskText').value = '';
   document.getElementById('taskForm').classList.add('hidden');
   renderTasks(); renderAllFilters(); renderTagsView();
 });
+
 
 function renderTasks() {
   const list = document.getElementById('tasksList');
@@ -158,6 +165,20 @@ function renderTasks() {
     tasks = tasks.filter(x => x.id !== b.dataset.del); save(); renderTasks(); renderAllFilters(); renderTagsView();
   }));
 }
+
+function focusTask(id) {
+  switchView('tasks');
+  activeFilters.tasks.clear();
+  renderTasks();
+  setTimeout(() => {
+    const el = document.getElementById('task-' + id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('highlight');
+    setTimeout(() => el.classList.remove('highlight'), 2200);
+  }, 80);
+}
+
 
 /* ===== Заметки ===== */
 const noteArea = document.getElementById('noteText');
@@ -306,7 +327,7 @@ function checkTasks() {
   tasks.forEach(t => {
     if (t.done || t.notified || !t.date || !t.time) return;
     const dt = new Date(t.date + 'T' + t.time);
-    if (now >= dt) { t.notified = true; save(); const txt = t.text; showBanner(txt); notify('Не забудь про меня!', txt); }
+    if (now >= dt) { t.notified = true; save(); showBanner(t.text); notify('🌸 Не забудь про меня!', t.text, t.id); }
   });
 }
 function showBanner(text) {
@@ -317,23 +338,37 @@ function showBanner(text) {
 }
 document.getElementById('bannerOk').addEventListener('click', () => document.getElementById('banner').classList.add('hidden'));
 
-function notify(title, body) {
+function notify(title, body, taskId) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const opts = {
+    body,
+    icon: 'icon-192.png',
+    badge: 'icon-192.png',
+    vibrate: [150, 80, 150, 80, 300],
+    tag: 'task-' + Date.now(),
+    data: { url: './?task=' + encodeURIComponent(taskId || '') }
+  };
   try {
     navigator.serviceWorker.ready.then(reg =>
-      reg.showNotification(title, {
-        body,
-        icon: 'icon-192.png',
-        badge: 'icon-192.png',
-        vibrate: [150, 80, 150, 80, 300],
-        tag: 'task-' + Date.now()
-      })
-    ).catch(() => { try { new Notification(title, { body, icon: 'icon-192.png' }); } catch (e) {} });
-  } catch (e) { try { new Notification(title, { body, icon: 'icon-192.png' }); } catch (e2) {} }
+      reg.showNotification(title, opts)
+    ).catch(() => { try { new Notification(title, opts); } catch (e) {} });
+  } catch (e) { try { new Notification(title, opts); } catch (e2) {} }
 }
+
 
 setInterval(checkTasks, 15000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkTasks(); });
+
+/* ===== Переход по push / ссылке на задачу ===== */
+(function handleTaskParam() {
+  const params = new URLSearchParams(location.search);
+  const taskId = params.get('task');
+  if (taskId) {
+    history.replaceState(null, '', location.pathname);
+    setTimeout(() => focusTask(taskId), 200);
+  }
+})();
+
 
 /* ===== Старт ===== */
 renderTasks(); renderNotes(); renderAllFilters(); renderTagsView();
