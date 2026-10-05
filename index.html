@@ -60,8 +60,10 @@
       <button class="cal-nav-btn" id="calNext">›</button>
     </div>
     <div class="cal-tools">
-      <button class="chip" id="editMarkersBtn">✏️ Редактировать</button>
+      <button class="icon-btn" id="editMarkersBtn" title="Редактировать маркеры">✏️</button>
+      <div class="marker-strip" id="markerStrip"></div>
     </div>
+    <div id="calHint" class="cal-hint"></div>
     <div class="cal-grid cal-dow-row">
       <div class="cal-dow">Пн</div><div class="cal-dow">Вт</div><div class="cal-dow">Ср</div>
       <div class="cal-dow">Чт</div><div class="cal-dow">Пт</div><div class="cal-dow">Сб</div><div class="cal-dow">Вс</div>
@@ -100,15 +102,16 @@
 <div id="markerModal" class="modal-overlay hidden">
   <div class="modal">
     <div class="modal-head">
-      <div class="modal-title">Маркеры</div>
+      <div class="modal-title">🎨 Маркеры</div>
       <button class="del" id="markerModalClose">✕</button>
     </div>
     <div id="markerList"></div>
-    <div class="marker-form">
+    <div class="form modal-form">
+      <div class="modal-sub" style="margin-top:0" id="markerFormTitle">Новый маркер</div>
       <input type="text" id="markerName" class="field" placeholder="Название маркера" autocomplete="off">
       <div class="row">
         <input type="color" id="markerColor" class="color-field" value="#7b5ea7">
-        <input type="number" id="markerHours" class="field" min="0" step="0.5" placeholder="часов в день">
+        <input type="number" id="markerHours" class="field" min="0" step="0.5" placeholder="Часов в день">
       </div>
       <button class="btn-primary" id="saveMarkerBtn">Добавить маркер</button>
     </div>
