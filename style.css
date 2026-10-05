@@ -224,3 +224,28 @@ main { padding: 16px; max-width: 560px; margin: 0 auto; }
   border-radius: 14px; background: #fff; cursor: pointer; flex-shrink: 0;
 }
 
+/* ===== Лента маркеров и режим назначения ===== */
+.cal-tools { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+#editMarkersBtn {
+  flex-shrink: 0; width: 44px; height: 44px; border: none; border-radius: 14px;
+  background: var(--accent-soft); color: var(--accent); font-size: 1.2rem; cursor: pointer;
+  box-shadow: var(--shadow);
+}
+.marker-strip {
+  display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 8px;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none; min-width: 0;
+}
+.marker-strip::-webkit-scrollbar { display: none; }
+.marker-strip .chip { display: inline-flex; align-items: center; flex-shrink: 0; }
+.marker-strip .chip.active { background: var(--accent); color: #fff; }
+.marker-strip .chip.active .chip-dot { box-shadow: 0 0 0 2px #fff; }
+.cal-hint {
+  display: none; font-size: .85rem; color: var(--accent); background: var(--accent-soft);
+  padding: 8px 12px; border-radius: 12px; margin-bottom: 12px; line-height: 1.4;
+}
+.cal-hint.show { display: block; }
+
+/* Попап маркеров в фирменном стиле */
+.modal-form { margin-top: 16px; }
+#markerList { border-radius: 16px; }
+
