@@ -100,6 +100,7 @@ function renderPicker(which) {
     '<div class="chip-input">' +
       selected.map(t => '<span class="chip-sel">' + esc(t) + '<button type="button" data-remove="' + esc(t) + '">✕</button></span>').join('') +
       '<input type="text" placeholder="новый тег…">' +
+      '<button type="button" class="tag-add-btn" title="Добавить тег">✓</button>' +
     '</div>';
   box.querySelectorAll('[data-pick]').forEach(b => b.addEventListener('click', () => {
     pickers[which].push(b.dataset.pick); renderPicker(which);
@@ -108,14 +109,20 @@ function renderPicker(which) {
     pickers[which] = pickers[which].filter(t => t !== b.dataset.remove); renderPicker(which);
   }));
   const inp = box.querySelector('input');
-  inp.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      const v = inp.value.trim().toLowerCase();
-      if (v && !pickers[which].includes(v)) { pickers[which].push(v); if (!allTags.includes(v)) allTags.push(v); save(); renderPicker(which); renderAllFilters(); }
+  const addTag = () => {
+    const v = inp.value.trim().toLowerCase();
+    if (v && !pickers[which].includes(v)) {
+      pickers[which].push(v);
+      if (!allTags.includes(v)) allTags.push(v);
+      save(); renderPicker(which); renderAllFilters();
     }
+  };
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(); }
   });
+  box.querySelector('.tag-add-btn').addEventListener('click', addTag);
 }
+
 
 /* ===== Задачи ===== */
 document.getElementById('addTaskBtn').addEventListener('click', () => {
