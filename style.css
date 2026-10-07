@@ -210,14 +210,22 @@ main { padding: 4px 18px 100px; max-width: 640px; margin: 0 auto; }
   flex: 1 1 0; min-width: 0;
   display: flex; flex-direction: column; align-items: center;
   gap: 3px; border: none; background: transparent; cursor: pointer;
-  font-family: inherit; font-size: .7rem; font-weight: 600;
+  font-family: inherit; font-size: 1rem; font-weight: 600;
   color: var(--muted); padding: 12px 0 10px; border-radius: 16px;
   transition: flex-grow .3s cubic-bezier(.4, 0, .2, 1),
               transform .3s cubic-bezier(.4, 0, .2, 1),
               color .3s, background .3s;
 }
+
+.nav-btn:first-child {
+  border-radius: 0px 16px 16px 16px;
+}
+
+.nav-btn:last-child {
+  border-radius: 16px 16px 0px 16px;
+}
 .nav-btn > :first-child {
-  font-size: 1.25rem; line-height: 1;
+  font-size: 1.05rem; line-height: 1;
   transition: transform .3s cubic-bezier(.34, 1.56, .64, 1);
 }
 .nav-btn span {
@@ -226,7 +234,7 @@ main { padding: 4px 18px 100px; max-width: 640px; margin: 0 auto; }
 }
 .nav-btn.active {
   flex-grow: 1.55; color: var(--accent); background: var(--accent-soft);
-  transform: translateY(-4px);
+  transform: scale(1.15);
 }
 .nav-btn.active > :first-child { transform: scale(1.18); }
 .nav-btn.active span { max-height: 18px; opacity: 1; }
@@ -268,9 +276,9 @@ main { padding: 4px 18px 100px; max-width: 640px; margin: 0 auto; }
 .cal-dow { text-align: center; font-size: .72rem; color: var(--muted); font-weight: 700; }
 .cal-day {
   aspect-ratio: 1; border-radius: 12px; background: var(--card); box-shadow: var(--shadow);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 2px; cursor: pointer; border: 2px solid transparent; position: relative;
-  padding: 2px; min-width: 0; overflow: hidden;
+  display: flex; flex-direction: column-reverse; align-items: center; justify-content: center;
+  gap: 2px; cursor: pointer; border: 1px solid transparent; position: relative;
+  padding: 1px; min-width: 0; overflow: hidden;
 }
 .cal-day.other { opacity: .3; pointer-events: none; box-shadow: none; background: transparent; }
 .cal-day.today { border-color: var(--accent); }
@@ -282,8 +290,8 @@ main { padding: 4px 18px 100px; max-width: 640px; margin: 0 auto; }
 }
 .cal-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .cal-count {
-  position: absolute; left: 4px; bottom: 4px; min-width: 18px; height: 18px; padding: 0 5px;
-  border-radius: 9px; background: var(--accent); color: #fff; font-size: .66rem; font-weight: 700;
+  position: absolute; left: 1px; bottom: 1px; min-width: 15px; height: 15px; padding: 0 5px;
+  border-radius: 9px; background: var(--accent); color: #fff; font-size: .6rem; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
 }
 .stat-title { font-weight: 700; margin: 14px 0 8px; }
