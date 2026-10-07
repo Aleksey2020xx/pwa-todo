@@ -291,8 +291,8 @@ main { padding: 4px 18px 100px; max-width: 640px; margin: 0 auto; }
 }
 .cal-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .cal-count {
-  position: absolute; left: 1px; bottom: 1px; min-width: 15px; height: 15px; padding: 0 5px;
-  border-radius: 9px; background: var(--accent); color: #fff; font-size: .6rem; font-weight: 700;
+  position: absolute; left: 1px; bottom: 1px; min-width: 13px; height: 13px; padding: 0 5px;
+  border-radius: 9px; background: var(--accent); color: #fff; font-size: .5rem; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
 }
 .stat-title { font-weight: 700; margin: 14px 0 8px; }
