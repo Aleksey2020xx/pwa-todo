@@ -90,7 +90,7 @@ document.getElementById('helpModalClose').addEventListener('click', () => closeM
 function renderPicker(which) {
   const box = document.getElementById(which === 'task' ? 'taskTagPicker' : 'noteTagPicker');
   const selected = pickers[which] || [];
-  const suggestions = allTags.filter(t => !selected.includes(t)).slice(0, 20);
+  const suggestions = allTags.filter(t => !selected.includes(t));
   box.innerHTML =
     '<div class="chip-input">' +
       '<input type="text" placeholder="новый тег…">' +
