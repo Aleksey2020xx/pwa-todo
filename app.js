@@ -8,6 +8,7 @@ let allTags = load(LS.tags, []);
 let markers = load(LS.markers, []);
 let calmarks = load(LS.calmarks, {});
 const activeFilters = { tasks: new Set(), notes: new Set() };
+let pickers = { task: [], notes: [] };
 
 function load(key, def) { try { return JSON.parse(localStorage.getItem(key)) || def; } catch { return def; } }
 function save() {
