@@ -203,7 +203,8 @@ main { padding: 4px 18px 100px; max-width: 640px; margin: 0 auto; }
   position: fixed; left: 0; right: 0; bottom: 0;
   display: flex; align-items: flex-end; gap: 4px;
   background: var(--card); box-shadow: 0 -4px 16px rgba(45, 36, 64, .08);
-  padding: 6px 10px calc(8px + env(safe-area-inset-bottom));
+  /*padding: 6px 10px calc(8px + env(safe-area-inset-bottom));*/
+  padding: 0;
   z-index: 50;
 }
 .nav-btn {
@@ -218,14 +219,14 @@ main { padding: 4px 18px 100px; max-width: 640px; margin: 0 auto; }
 }
 
 .nav-btn:first-child {
-  border-radius: 0px 16px 16px 16px;
+  border-radius: 0px 16px 16px 0px;
 }
 
 .nav-btn:last-child {
-  border-radius: 16px 16px 0px 16px;
+  border-radius: 16px 0px 0px 16px;
 }
 .nav-btn > :first-child {
-  font-size: 1.05rem; line-height: 1;
+  font-size: .7rem; line-height: 1;
   transition: transform .3s cubic-bezier(.34, 1.56, .64, 1);
 }
 .nav-btn span {
