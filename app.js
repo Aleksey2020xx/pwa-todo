@@ -86,7 +86,8 @@ document.getElementById('helpCalendarBtn').addEventListener('click', () => openM
 document.getElementById('helpModalClose').addEventListener('click', () => closeModal('helpModal'));
 
 
-/* ===== Пикер тегов (общий) ===== */
+/* ===== Пикер тегов ==== */
+
 function renderPicker(which) {
   const box = document.getElementById(which === 'task' ? 'taskTagPicker' : 'noteTagPicker');
   const selected = pickers[which] || [];
