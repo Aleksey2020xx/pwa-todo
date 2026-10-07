@@ -87,21 +87,24 @@ document.getElementById('helpModalClose').addEventListener('click', () => closeM
 
 
 /* ===== Пикер тегов (общий) ===== */
-let pickers = {};
 function renderPicker(which) {
   const box = document.getElementById(which === 'task' ? 'taskTagPicker' : 'noteTagPicker');
   const selected = pickers[which] || [];
   const suggestions = allTags.filter(t => !selected.includes(t)).slice(0, 20);
   box.innerHTML =
-    (suggestions.length
-      ? '<div class="tag-suggest">' + suggestions.map(t =>
-          '<button type="button" class="chip" data-pick="' + esc(t) + '">' + esc(t) + '</button>').join('') + '</div>'
-      : '') +
     '<div class="chip-input">' +
-      selected.map(t => '<span class="chip-sel">' + esc(t) + '<button type="button" data-remove="' + esc(t) + '">✕</button></span>').join('') +
       '<input type="text" placeholder="новый тег…">' +
       '<button type="button" class="tag-add-btn" title="Добавить тег">✓</button>' +
-    '</div>';
+    '</div>' +
+    (selected.length
+      ? '<div class="picker-label">Выбрано</div><div class="tag-suggest picker-selected">' +
+        selected.map(t => '<span class="chip-sel">' + esc(t) +
+          '<button type="button" data-remove="' + esc(t) + '">✕</button></span>').join('') + '</div>'
+      : '') +
+    (suggestions.length
+      ? '<div class="picker-label">Ваши теги</div><div class="tag-suggest picker-suggest">' +
+        suggestions.map(t => '<button type="button" class="chip" data-pick="' + esc(t) + '">' + esc(t) + '</button>').join('') + '</div>'
+      : '');
   box.querySelectorAll('[data-pick]').forEach(b => b.addEventListener('click', () => {
     pickers[which].push(b.dataset.pick); renderPicker(which);
   }));
@@ -122,6 +125,7 @@ function renderPicker(which) {
   });
   box.querySelector('.tag-add-btn').addEventListener('click', addTag);
 }
+
 
 
 /* ===== Задачи ===== */
